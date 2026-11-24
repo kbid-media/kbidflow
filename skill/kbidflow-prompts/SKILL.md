@@ -60,6 +60,7 @@ Monte o rascunho em `<scratchpad>/fila.json`:
     "prefix": "",
     "startNumber": 1,
     "maxParallel": 2,
+    "chainFrames": false,
     "thenDownload": true
   },
   "prompts": ["prompt 1 numa linha", "prompt 2 numa linha"]
@@ -75,6 +76,12 @@ python D:/IA/Skills/kbidflow-prompts/scripts/salvar_fila.py "<scratchpad>/fila.j
 O script põe cada prompt numa linha e grava `filas\<data>_<slug>.json` + `filas/index.json` em toda KbidFlow instalada na máquina (`D:\IA\KbidFlow` e/ou `%LOCALAPPDATA%\KbidFlow\extensao`, a pasta do instalador). Também avisa sobre fala longa demais, prompt curto ou repetido. Corrija os avisos e salve de novo (a versão nova vira `-v2`; não apague a anterior).
 
 `maxParallel`: 2 é o padrão seguro. 3 só se o usuário pedir pressa; 1 para Quality ou fila grande.
+
+`chainFrames: true` (**continuar do último frame**): para uma cena contínua (plano-sequência, uma fala longa dividida em takes, a mesma ação seguindo). A KbidFlow gera um vídeo por vez; antes de cada prompt, salva o último quadro do vídeo anterior ("Salvar frame" do Flow) e o põe no **Início** da caixa. Nesse modo:
+- escreva cada prompt como **continuação** do anterior: comece pela posição em que o take anterior terminou ("Continuando do mesmo plano, ele …") e não mude cenário, roupa nem luz;
+- não descreva entrada em cena nem corte: o vídeo já começa naquele quadro;
+- em `flow.observacoes`, peça para deixar a caixa no modo de vídeo com frames (Início/Fim visíveis) e, se quiser, já escolher o frame do primeiro vídeo no Início;
+- o tempo total é maior (um por vez), então avise.
 
 ## Etapa 4: entregar (curto, no máximo 5 itens)
 

@@ -3,7 +3,7 @@ const $ = (s) => document.querySelector(s);
 const FLOW_RE = /^https:\/\/(flow\.google\.com|labs\.google)\//;
 const SPEED = { fast: 3, balanced: 2, slow: 1 };
 const FIELDS = [
-  "prompts", "speed", "maxParallel", "genGapSec", "genTimeoutMin", "thenDownload",
+  "prompts", "speed", "maxParallel", "genGapSec", "genTimeoutMin", "chainFrames", "thenDownload",
   "limit", "skipSaved", "includeImages",
   "quality", "imageQuality", "folder", "prefix", "startNumber", "timeoutMin", "gapSec", "fallback720", "allowCredits",
 ];

@@ -28,7 +28,8 @@ A versão instalada aparece no topo do painel.
 2. Na caixa do próprio Flow, escolha modelo, proporção (9:16 ou 16:9), duração e quantidade por prompt.
 3. No painel, aba **Gerar**: cole os prompts (um por linha), escolha a velocidade e clique em **Gerar fila**.
 4. A extensão digita cada prompt e clica em enviar, respeitando o limite de gerações ao mesmo tempo.
-5. Com **Baixar os vídeos gerados quando terminar**, ela espera tudo ficar pronto e baixa só os vídeos novos, numerados pela ordem dos prompts (`001 - …`, `002 - …`; variações viram `001b`, `001c`).
+5. **Continuar do último frame** (opcional): gera um vídeo por vez e, antes de cada prompt, salva o último quadro do vídeo anterior ("Salvar frame" do Flow) e o põe no **Início** da caixa. Serve para cenas contínuas. A caixa do Flow precisa estar no modo que mostra **Início** e **Fim**.
+6. Com **Baixar os vídeos gerados quando terminar**, ela espera tudo ficar pronto e baixa só os vídeos novos, numerados pela ordem dos prompts (`001 - …`, `002 - …`; variações viram `001b`, `001c`).
 
 ## Fila pronta (skill kbidflow-prompts)
 Peça ao Claude "monta a fila do Flow para N vídeos de …". A skill escreve os prompts e salva em `D:\IA\KbidFlow\filas\`.

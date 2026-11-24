@@ -488,7 +488,7 @@
     const startHref = location.href;
     await closeMenus();
     window.scrollTo({ top: 0, behavior: "instant" });
-    scroller().scrollTo({ top: 0, behavior: "instant" });
+    scroller().scrollTo?.({ top: 0, behavior: "instant" });
     await sleep(800);
     while (!S.stop) {
       if (location.href !== startHref) {
@@ -516,7 +516,7 @@
         const sc = scroller();
         const before = sc.scrollTop;
         tiles[tiles.length - 1]?.scrollIntoView({ block: "end" });
-        sc.scrollBy({ top: sc.clientHeight * 0.8 });
+        sc.scrollBy?.({ top: sc.clientHeight * 0.8 });
         window.scrollBy({ top: window.innerHeight * 0.8 });
         let grew = false;
         for (let i = 0; i < 8 && !grew && !S.stop; i++) {
@@ -711,20 +711,145 @@
     return null;
   }
 
+  // ---------- continuar do último frame (tudo pelos botões do próprio Flow) ----------
+  // Abre o vídeo anterior no editor, vai ao fim (Pular para o próximo clipe), clica em "Salvar frame",
+  // volta para a galeria e põe "Frame salvo de <título>" no Início da caixa de comando.
+  const visibleButtons = () => [...document.querySelectorAll("button")].filter(visible);
+  const flowButton = (arias, icons) =>
+    visibleButtons().find((b) => {
+      const a = b.getAttribute("aria-label") || "";
+      return arias.some((x) => a.includes(x)) || showsIcon(b, icons);
+    }) || null;
+  const findStartChip = () =>
+    [...document.querySelectorAll("button.empty-chip")].filter(visible).find((b) => /^(Início|Inicio|Start)$/i.test((b.innerText || "").trim())) || null;
+  const filledStartChip = () =>
+    [...document.querySelectorAll("button.chip-container")].filter(visible).find((b) => b.querySelector("img")) || null;
+  const overlay = () => [...document.querySelectorAll(".cdk-overlay-pane")].filter(visible).pop() || null;
+
+  const titleCounts = () => {
+    const m = new Map();
+    for (const t of allTiles()) if (kindOf(t) === "video") m.set(tileName(t), (m.get(tileName(t)) || 0) + 1);
+    return m;
+  };
+  // Tiles de vídeo que não existiam no retrato `before` (o grid mostra o mais novo primeiro).
+  function newVideoTiles(before) {
+    const seen = new Map();
+    const out = [];
+    const now = titleCounts();
+    for (const t of allTiles()) {
+      if (kindOf(t) !== "video") continue;
+      const n = tileName(t);
+      const i = (seen.get(n) || 0) + 1;
+      seen.set(n, i);
+      const extra = (now.get(n) || 0) - (before.get(n) || 0);
+      if (i <= extra) out.push(t);
+    }
+    return out;
+  }
+  async function waitNewVideo(before, label) {
+    const limit = (Number(S.settings.genTimeoutMin) || 30) * 60000;
+    const start = Date.now();
+    while (!S.stop && Date.now() - start < limit) {
+      const fresh = newVideoTiles(before);
+      const ready = fresh.find(isReady);
+      if (ready) return { title: tileName(ready) };
+      if (fresh.length && fresh.every(isFailedTile)) return { error: "a geração falhou no Flow" };
+      status(`${label}: gerando… ${Math.round((Date.now() - start) / 1000)} s`);
+      await sleep(3000);
+    }
+    return { error: S.stop ? "parado" : `nada ficou pronto em ${S.settings.genTimeoutMin || 30} min` };
+  }
+
+  async function clearStartFrame() {
+    const chip = filledStartChip();
+    if (!chip) return;
+    const x = [...chip.querySelectorAll("*")].find((e) => !e.children.length && (e.textContent || "").trim() === "cancel");
+    (x || chip).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await waitFor(findStartChip, 4000, 200);
+  }
+
+  async function saveLastFrame(title) {
+    const tile = await waitFor(
+      () => allTiles().find((t) => kindOf(t) === "video" && isReady(t) && tileName(t) === title),
+      20000,
+      500,
+    );
+    if (!tile) return `não achei o vídeo "${title}" na galeria`;
+    tile.scrollIntoView({ block: "center", behavior: "instant" });
+    await sleep(500);
+    (tile.querySelector("video") || tile.querySelector(".container") || tile).click();
+    const save = await waitFor(() => flowButton(["Salvar frame", "Save frame"], ["add_photo_alternate"]), 15000, 300);
+    if (!save) return "o editor do vídeo não abriu";
+    await sleep(800);
+    const skip = flowButton(["Pular para o próximo clipe", "Skip to next clip"], ["skip_next"]);
+    if (skip) {
+      skip.click();
+      await sleep(1000);
+    }
+    save.click();
+    const ok = await waitFor(() => flowNotices().some((el) => /frame salvo|frame saved/i.test(noticeText(el))), 15000, 300);
+    await sleep(600);
+    flowButton(['"Voltar"', "Voltar", "Back"], ["arrow_back"])?.click();
+    await waitFor(() => findStartChip() || filledStartChip(), 15000, 300);
+    await sleep(800);
+    return ok ? null : 'o Flow não confirmou "Frame salvo"';
+  }
+
+  async function attachStartFrame(title) {
+    await clearStartFrame();
+    const chip = await waitFor(findStartChip, 8000, 300);
+    if (!chip) return "botão Início não apareceu (o modo escolhido no Flow aceita frame inicial?)";
+    chip.click();
+    const search = await waitFor(() => overlay()?.querySelector('input[aria-label="Pesquisar recursos"], input[type="text"]'), 8000, 250);
+    if (!search) return "o seletor de frame não abriu";
+    search.focus();
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(search, title);
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    const opt = await waitFor(
+      () =>
+        [...(overlay()?.querySelectorAll('button[role="option"]') || [])].find((b) => {
+          const t = (b.innerText || "").trim();
+          return /frame/i.test(t) && t.endsWith(title);
+        }),
+      8000,
+      300,
+    );
+    if (!opt) {
+      flowButton(["Fechar", "Close"], ["close"])?.click();
+      return `"Frame salvo de ${title}" não apareceu no seletor`;
+    }
+    opt.click();
+    // Clicar na imagem às vezes já inclui e fecha; senão, aparece "Incluir no comando".
+    const next = await waitFor(() => filledStartChip() || overlay()?.querySelector("button.detail-add-to-prompt-btn"), 6000, 200);
+    if (next && next.classList?.contains("detail-add-to-prompt-btn")) next.click();
+    return (await waitFor(filledStartChip, 6000, 300)) ? null : "o frame não entrou na caixa";
+  }
+
   async function startGenerate() {
     const prompts = (S.settings.prompts || []).map((p) => p.trim()).filter(Boolean);
     if (!prompts.length) return log("Nenhum prompt na fila.", "error");
-    const maxParallel = Math.max(1, Number(S.settings.maxParallel) || 2);
+    const chain = !!S.settings.chainFrames;
+    const maxParallel = chain ? 1 : Math.max(1, Number(S.settings.maxParallel) || 2);
     const gap = Math.max(0, Number(S.settings.genGapSec) || 0) * 1000;
     const sent = [];
     const preKeys = new Set(tileKeys().values()); // o que já existia antes desta fila
+    let lastTitle = null;
     S.total = prompts.length;
+    if (chain) log("🔗 Modo contínuo: um vídeo por vez, cada um começa do último frame do anterior.");
     for (let i = 0; i < prompts.length && !S.stop; i++) {
       const label = `Prompt ${i + 1}/${prompts.length}`;
       await waitUntilVisible();
       status(`${label}: aguardando vaga (${getGenerating().length}/${maxParallel} gerando)`);
       await waitFor(() => getGenerating().length < maxParallel, 60 * 60000, 2000);
       if (S.stop) break;
+      if (chain && lastTitle) {
+        status(`${label}: pegando o último frame de "${lastTitle}"`);
+        let e = await saveLastFrame(lastTitle);
+        if (!e) e = await attachStartFrame(lastTitle);
+        if (e) log(`⚠️ ${label}: ${e}. Segue sem frame inicial.`, "warn");
+        else log(`🔗 ${label} começa do último frame de "${lastTitle}"`, "success");
+      }
+      const before = titleCounts();
       status(`${label}: enviando`);
       let err = await submitPrompt(prompts[i], label);
       if (err && !S.stop) {
@@ -739,6 +864,12 @@
         S.done++;
         sent.push({ idx: i + 1, prompt: prompts[i] });
         log(`🎬 ${label} enviado: "${prompts[i].slice(0, 60)}"`, "success");
+        if (chain && i < prompts.length - 1) {
+          const r = await waitNewVideo(before, label);
+          lastTitle = r.title || null;
+          if (r.title) log(`✅ ${label} pronto: "${r.title}"`, "success");
+          else log(`⚠️ ${label}: ${r.error}. O próximo começa sem frame.`, "warn");
+        }
       }
       status();
       if (gap) await sleep(gap);
@@ -984,6 +1115,9 @@
     })().then(sendResponse, (e) => sendResponse({ ok: false, error: e?.message || String(e) }));
     return true;
   });
+
+  // Para teste manual no console da aba (não muda nada sozinho).
+  window.__kbidflowDebug = { saveLastFrame, attachStartFrame, clearStartFrame, titleCounts, newVideoTiles };
 
   log("pronto nesta aba do Flow");
 })();
