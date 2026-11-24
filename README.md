@@ -35,8 +35,8 @@ Peça ao Claude "monta a fila do Flow para N vídeos de …". A skill escreve os
 No painel: **Gerar** › **atualizar lista** › escolha a fila › **Carregar**. O quadro amarelo diz como deixar a caixa do Flow (modelo, proporção, duração). Depois clique em **Gerar fila**.
 Também dá para abrir um `.json` ou `.txt` (um prompt por linha) com **abrir arquivo…**.
 
-A skill está em `skill/kbidflow-prompts`. Para usar no Claude Code, copie essa pasta para `%USERPROFILE%\.claude\skills\`.
-Se a extensão não estiver em `D:\IA\KbidFlow`, salve as filas com `--pasta <pasta-da-extensão>\filas`.
+A skill está em `skill/kbidflow-prompts`. O instalador já a coloca no Claude Code (`%USERPROFILE%\.claude\skills\`) de quem tem o Claude Code instalado.
+As filas são gravadas em toda KbidFlow instalada na máquina; para outra pasta, use `--pasta <pasta-da-extensão>\filas`.
 
 ## Baixar
 Aba **Baixar** › **Baixar vídeos**. Para cada vídeo: ⋮ › Download › 1080p. Ela espera o upscale do Flow e o Chrome começar o arquivo, e só então passa ao próximo.

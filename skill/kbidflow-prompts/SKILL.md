@@ -72,7 +72,7 @@ Depois rode:
 python D:/IA/Skills/kbidflow-prompts/scripts/salvar_fila.py "<scratchpad>/fila.json"
 ```
 
-O script põe cada prompt numa linha, grava `D:\IA\KbidFlow\filas\<data>_<slug>.json`, atualiza `filas/index.json` e avisa sobre fala longa demais, prompt curto ou repetido. Corrija os avisos e salve de novo (a versão nova vira `-v2`; não apague a anterior).
+O script põe cada prompt numa linha e grava `filas\<data>_<slug>.json` + `filas/index.json` em toda KbidFlow instalada na máquina (`D:\IA\KbidFlow` e/ou `%LOCALAPPDATA%\KbidFlow\extensao`, a pasta do instalador). Também avisa sobre fala longa demais, prompt curto ou repetido. Corrija os avisos e salve de novo (a versão nova vira `-v2`; não apague a anterior).
 
 `maxParallel`: 2 é o padrão seguro. 3 só se o usuário pedir pressa; 1 para Quality ou fila grande.
 

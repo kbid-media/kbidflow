@@ -36,8 +36,24 @@ try {
         Copy-Item (Join-Path $Pasta "filas") $filasBackup -Recurse
     }
     Get-ChildItem $Pasta -Force | Remove-Item -Recurse -Force
-    Copy-Item (Join-Path $novo "*") $Pasta -Recurse -Force
+    Get-ChildItem $novo -Force | Where-Object { $_.Name -ne "skill" } | Copy-Item -Destination $Pasta -Recurse -Force
     if ($filasBackup) { Copy-Item (Join-Path $filasBackup "*") (Join-Path $Pasta "filas") -Recurse -Force }
+
+    # Skill de prompts para o Claude Code (só se o Claude Code estiver instalado neste usuário).
+    $skillNova = Join-Path $novo "skill\kbidflow-prompts"
+    $claude = Join-Path $env:USERPROFILE ".claude"
+    $skillMsg = $null
+    if ((Test-Path $skillNova) -and (Test-Path $claude)) {
+        $skillDest = Join-Path $claude "skills\kbidflow-prompts"
+        $ligada = (Test-Path $skillDest) -and ((Get-Item $skillDest -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)
+        if ($ligada) {
+            $skillMsg = "Skill kbidflow-prompts: mantida (a pasta é um atalho para outro lugar)."
+        } else {
+            New-Item -ItemType Directory -Force -Path $skillDest | Out-Null
+            Copy-Item (Join-Path $skillNova "*") $skillDest -Recurse -Force
+            $skillMsg = "Skill kbidflow-prompts instalada no Claude Code: peça 'monta a fila do Flow para ...'."
+        }
+    }
 
     $versao = (Get-Content (Join-Path $Pasta "manifest.json") -Raw | ConvertFrom-Json).version
     Write-Host ""
@@ -52,6 +68,7 @@ try {
         Write-Host "KbidFlow atualizada: $antes -> $versao" -ForegroundColor Green
         Write-Host "Em chrome://extensions, clique no botão de recarregar da KbidFlow e dê F5 na aba do Flow."
     }
+    if ($skillMsg) { Write-Host $skillMsg -ForegroundColor Cyan }
 }
 finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue

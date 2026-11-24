@@ -468,6 +468,17 @@
     await chrome.storage.local.set({ [k]: list.slice(-5000) });
   }
 
+  // A área que rola de verdade (a galeria do Flow tem rolagem própria; se não houver, a página).
+  function scroller() {
+    let n = allTiles()[0]?.parentElement;
+    while (n && n !== document.body) {
+      const cs = getComputedStyle(n);
+      if (/(auto|scroll)/.test(cs.overflowY) && n.scrollHeight > n.clientHeight + 10) return n;
+      n = n.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+
   // ---------- percorre os tiles e baixa um por vez ----------
   // pickTarget(tile, key) → null (pular) ou { fileName } ; ordem: a do grid do Flow (mais novo primeiro)
   async function runDownloads(pickTarget, expected) {
@@ -477,7 +488,8 @@
     const startHref = location.href;
     await closeMenus();
     window.scrollTo({ top: 0, behavior: "instant" });
-    await sleep(500);
+    scroller().scrollTo({ top: 0, behavior: "instant" });
+    await sleep(800);
     while (!S.stop) {
       if (location.href !== startHref) {
         log("O projeto mudou, parando.", "error");
@@ -500,14 +512,29 @@
         }
       }
       if (!next) {
-        const beforeY = window.scrollY;
+        // A galeria do Flow rola dentro de uma área própria e carrega mais tiles aos poucos.
+        const sc = scroller();
+        const before = sc.scrollTop;
         tiles[tiles.length - 1]?.scrollIntoView({ block: "end" });
+        sc.scrollBy({ top: sc.clientHeight * 0.8 });
         window.scrollBy({ top: window.innerHeight * 0.8 });
-        await sleep(1500);
-        const after = tileKeys();
-        const grew = allTiles().some((t) => isReady(t) && !seen.has(after.get(t)));
-        if (!grew && window.scrollY === beforeY) emptyPasses++;
-        if (!grew && emptyPasses >= 2) break;
+        let grew = false;
+        for (let i = 0; i < 8 && !grew && !S.stop; i++) {
+          await sleep(500);
+          const after = tileKeys();
+          grew = allTiles().some((t) => isReady(t) && !seen.has(after.get(t)));
+        }
+        if (grew) {
+          emptyPasses = 0;
+          continue;
+        }
+        const atBottom = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 8;
+        if (sc.scrollTop === before || atBottom) emptyPasses++;
+        if (emptyPasses >= 3) {
+          const generating = getGenerating().length;
+          log(`Fim da galeria: ${seen.size} itens vistos${generating ? `, ${generating} ainda gerando (não baixados)` : ""}.`);
+          break;
+        }
         continue;
       }
       emptyPasses = 0;

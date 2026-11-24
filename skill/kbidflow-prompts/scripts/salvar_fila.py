@@ -1,7 +1,7 @@
 """Salva uma fila de prompts para a extensão KbidFlow e atualiza o índice que o painel lê.
 
 Uso:
-    python salvar_fila.py rascunho.json
+    python salvar_fila.py rascunho.json            (grava em todas as KbidFlow instaladas)
     python salvar_fila.py rascunho.json --pasta D:/IA/KbidFlow/filas
 
 O rascunho é um JSON com:
@@ -21,12 +21,24 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
 import sys
 import unicodedata
 from pathlib import Path
 
-PASTA_PADRAO = Path("D:/IA/KbidFlow/filas")
+# Onde a extensão pode estar instalada: a pasta do repositório e a pasta do instalador (instalar.ps1).
+# A fila é gravada em todas as que existirem. KBIDFLOW_FILAS força uma pasta específica.
+EXTENSOES = [Path("D:/IA/KbidFlow"), Path(os.environ.get("LOCALAPPDATA", "")) / "KbidFlow" / "extensao"]
+
+
+def pastas_padrao() -> list[Path]:
+    if os.environ.get("KBIDFLOW_FILAS"):
+        return [Path(os.environ["KBIDFLOW_FILAS"])]
+    achadas = [e / "filas" for e in EXTENSOES if (e / "manifest.json").exists()]
+    if not achadas:
+        raise SystemExit("ERRO: não achei a KbidFlow instalada. Use --pasta <pasta-da-extensão>/filas.")
+    return achadas
 PALAVRAS_POR_SEGUNDO = 2.6  # fala natural em português; acima disso o Veo corta ou acelera
 
 
@@ -71,8 +83,9 @@ def conferir(fila: dict) -> list[str]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("rascunho", type=Path)
-    ap.add_argument("--pasta", type=Path, default=PASTA_PADRAO)
+    ap.add_argument("--pasta", type=Path, default=None, help="pasta filas/ de uma KbidFlow (padrão: todas as instaladas)")
     args = ap.parse_args()
+    pastas = [args.pasta] if args.pasta else pastas_padrao()
 
     fila = json.loads(args.rascunho.read_text(encoding="utf-8"))
     fila["titulo"] = uma_linha(fila.get("titulo") or args.rascunho.stem)
@@ -88,24 +101,25 @@ def main() -> None:
 
     avisos = conferir(fila)
 
-    args.pasta.mkdir(parents=True, exist_ok=True)
-    nome = f"{hoje}_{slug(fila['titulo'])}.json"
-    destino = args.pasta / nome
-    n = 2
-    while destino.exists():
-        nome = f"{hoje}_{slug(fila['titulo'])}-v{n}.json"
-        destino = args.pasta / nome
-        n += 1
-    destino.write_text(json.dumps(fila, ensure_ascii=False, indent=2), encoding="utf-8")
+    for pasta in pastas:
+        pasta.mkdir(parents=True, exist_ok=True)
+        nome = f"{hoje}_{slug(fila['titulo'])}.json"
+        destino = pasta / nome
+        n = 2
+        while destino.exists():
+            nome = f"{hoje}_{slug(fila['titulo'])}-v{n}.json"
+            destino = pasta / nome
+            n += 1
+        destino.write_text(json.dumps(fila, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    idx_path = args.pasta / "index.json"
-    idx = json.loads(idx_path.read_text(encoding="utf-8")) if idx_path.exists() else {"filas": []}
-    idx.setdefault("filas", []).append(
-        {"arquivo": nome, "titulo": fila["titulo"], "criada": hoje, "prompts": len(fila["prompts"])}
-    )
-    idx_path.write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+        idx_path = pasta / "index.json"
+        idx = json.loads(idx_path.read_text(encoding="utf-8")) if idx_path.exists() else {"filas": []}
+        idx.setdefault("filas", []).append(
+            {"arquivo": nome, "titulo": fila["titulo"], "criada": hoje, "prompts": len(fila["prompts"])}
+        )
+        idx_path.write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"OK: {destino}")
 
-    print(f"OK: {destino}")
     print(f"{len(fila['prompts'])} prompts · pasta de download: Downloads/{k['folder']}")
     for a in avisos:
         print("AVISO:", a)
