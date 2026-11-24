@@ -266,7 +266,7 @@
       if (S.gotArm === armId) return { ok: true };
       const failed = newFailureNotice(notices);
       if (failed) return { ok: false, err: "o Flow avisou: " + failed.slice(0, 120) };
-      if (Date.now() - start > timeoutMs) return { ok: false, err: `não começou em ${S.settings.timeoutMin} min` };
+      if (Date.now() - start > timeoutMs) return { ok: false, err: `não começou em ${S.settings.timeoutMin || 10} min` };
       const s = Math.round((Date.now() - start) / 1000);
       status(`${label}: esperando o upscale ${S.settings.quality} (${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")})`);
       await sleep(1000);
@@ -550,7 +550,7 @@
         log(`✅ ${label} salvo em ${S.lastQ} como ${target.fileName}`, S.lastQ === S.settings.quality || kindOf(next) === "image" ? "success" : "warn");
       }
       status();
-      const gap = (Number(S.settings.gapSec) || 0) * 1000;
+      const gap = (S.settings.gapSec == null ? 2 : Number(S.settings.gapSec) || 0) * 1000; // pausa fixa de 2 s
       if (gap) await sleep(gap);
     }
   }
