@@ -880,6 +880,21 @@
     const ok = await waitFor(() => (mode === "frames" ? inFramesMode() : !!addElementButton()), 4000, 200);
     return ok ? null : `não consegui pôr a caixa no modo ${mode === "frames" ? "Frames" : "Elementos"}`;
   }
+  async function setDuration(sec) {
+    const want = `${parseInt(sec, 10)}s`;
+    const trig = document.querySelector("button.settings-trigger-button") || flowButton(["Gatilho de configurações", "Settings"], []);
+    if (!trig) return "menu de configurações da caixa não encontrado";
+    if ((trig.innerText || "").replace(/\s+/g, " ").split(/[\s·]+/).includes(want)) return null;
+    trig.click();
+    const p = await waitFor(() => paneWith('[role="radio"]'), 5000, 200);
+    if (!p) return "o menu de configurações não abriu";
+    const radio = [...p.querySelectorAll('[role="radio"]')].find((r) => (r.innerText || "").trim() === want);
+    if (radio) radio.click();
+    await sleep(500);
+    document.querySelector(".cdk-overlay-backdrop")?.click();
+    await sleep(500);
+    return radio ? null : `a duração ${want} não existe para o modelo escolhido`;
+  }
   async function clearElements() {
     for (let k = 0; k < 12; k++) {
       const chip = elementChips()[0];
@@ -992,7 +1007,10 @@
     if (!prompts.length) return log("Nenhum prompt na fila.", "error");
     const chain = !!S.settings.chainFrames;
     const usesImages = !!(S.settings.globalImages?.length || items.some((it) => it.images?.length || it.inicio));
-    const maxParallel = chain || usesImages ? 1 : Math.max(1, Number(S.settings.maxParallel) || 2);
+    // Ajustes por take (imagens, duração, continuar do anterior) mexem na caixa: um vídeo por vez.
+    const perTake = usesImages || items.some((it) => it.continuar || it.duracao);
+    const maxParallel = chain || perTake ? 1 : Math.max(1, Number(S.settings.maxParallel) || 2);
+    const titleToName = new Map(); // título do vídeo no Flow -> nome do take (para o arquivo)
     const gap = Math.max(0, Number(S.settings.genGapSec) || 0) * 1000;
     const sent = [];
     const preKeys = new Set(tileKeys().values()); // o que já existia antes desta fila
@@ -1016,11 +1034,18 @@
       await waitFor(() => getGenerating().length < maxParallel, 60 * 60000, 2000);
       if (S.stop) break;
       status(`${label}: preparando a caixa`);
-      const prep = await prepareComposer(items[i], label, chain ? lastTitle : null);
+      if (items[i].nome) log(`▶ ${label}: ${items[i].nome}`);
+      if (items[i].continuar && !lastTitle) log(`⚠️ ${label}: devia continuar do vídeo anterior, mas ele não ficou pronto. Segue sem frame.`, "warn");
+      const prep = await prepareComposer(items[i], label, chain || items[i].continuar ? lastTitle : null);
       if (prep) {
         S.failed++;
         log(`❌ ${label}: ${prep}. Prompt pulado.`, "error");
+        lastTitle = null;
         continue;
+      }
+      if (items[i].duracao) {
+        const e = await setDuration(items[i].duracao);
+        if (e) log(`⚠️ ${label}: ${e}. Segue com a duração que está na caixa.`, "warn");
       }
       const before = titleCounts();
       status(`${label}: enviando`);
@@ -1035,12 +1060,13 @@
         log(`❌ ${label}: ${err}`, "error");
       } else {
         S.done++;
-        sent.push({ idx: i + 1, prompt: prompts[i] });
+        sent.push({ idx: i + 1, prompt: prompts[i], nome: items[i].nome || null });
         log(`🎬 ${label} enviado: "${prompts[i].slice(0, 60)}"`, "success");
-        if ((chain || usesImages) && i < prompts.length - 1) {
+        if ((chain || perTake) && (i < prompts.length - 1 || S.settings.thenDownload)) {
           // um por vez: espera este vídeo antes de mexer na caixa para o próximo
           const r = await waitNewVideo(before, label);
           lastTitle = r.title || null;
+          if (r.title && items[i].nome) titleToName.set(r.title, items[i].nome);
           if (r.title) log(`✅ ${label} pronto: "${r.title}"`, "success");
           else log(`⚠️ ${label}: ${r.error}. O próximo começa sem frame.`, "warn");
         }
@@ -1093,8 +1119,15 @@
     S.total = fresh.length;
     S.mode = "download";
     status(`Baixando os ${fresh.length} vídeos gerados`);
+    const usedNames = new Set();
     await runDownloads((t, key) => {
       if (kindOf(t) !== "video") return null;
+      // take com nome (ex.: v4_t03): o arquivo leva o nome do take
+      const nome = order.has(key) ? titleToName.get(tileName(t)) : null;
+      if (nome && !usedNames.has(nome)) {
+        usedNames.add(nome);
+        return { fileName: `${S.settings.prefix || ""}${nome}` };
+      }
       const m = matchPrompt(tileName(t));
       if (m) {
         const c = (perPrompt.get(m.idx) || 0) + 1;

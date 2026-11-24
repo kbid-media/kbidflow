@@ -73,6 +73,8 @@ Monte o rascunho em `<scratchpad>/fila.json`:
 }
 ```
 
+**Ajustes por take** (dentro do objeto do prompt): `"nome": "v4_t03"` (o arquivo baixado leva esse nome), `"duracao": 8` (4, 6, 8 ou 10; a KbidFlow troca no menu do Flow antes de enviar) e `"continuar": true` (começa do último quadro do take anterior da fila, para os takes "b"). Para uma série que já tem roteiro e frames (ex.: `prompts_flow_v2.md` com "Imagem inicial"), monte um prompt por take com `nome`, `duracao`, `inicio` (o frame) ou `continuar`.
+
 **Imagens (pacote):** `imagens` no topo entram em todos os prompts; `imagens` dentro de um prompt só naquele; `inicio` é o frame inicial daquele vídeo. Sem imagens, use só textos e apague as chaves. O script copia os arquivos para dentro da fila (nome = `<fila>_<arquivo>`, que vira o nome da mídia no Flow). Na hora de gerar, a KbidFlow sobe o que faltar no projeto (soltando o arquivo na caixa), troca a caixa sozinha para **Elementos** (imagens) ou **Frames** (início/último frame) e faz um vídeo por vez.
 - O Flow não junta frame inicial com elementos no mesmo vídeo. Com imagens + `chainFrames`, o último frame entra como mais um elemento. Com imagens + `inicio`, vale o modo Elementos e o `inicio` é ignorado; avise o usuário e prefira um ou outro.
 - Escreva o prompt sabendo que as imagens estão lá: "o homem da imagem de referência…", sem redescrever o rosto em detalhe.

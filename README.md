@@ -51,6 +51,7 @@ Uma fila pode trazer imagens junto com os prompts:
 ```
 
 - `imagens` no topo entram em todos os prompts; dentro de um prompt, só naquele; `inicio` é o frame inicial daquele vídeo.
+- Por take também: `"nome": "v4_t03"` (nome do arquivo baixado), `"duracao": 8` (4, 6, 8 ou 10 s, trocada no menu do Flow) e `"continuar": true` (começa do último quadro do take anterior).
 - **abrir pasta (prompts + imagens)…**: escolha uma pasta do computador com o `.json` (ou um `prompts.txt`) e as imagens. Se o arquivo não citar imagens, todas as imagens da pasta entram em todos os prompts.
 - Ao gerar, a KbidFlow sobe ao projeto as imagens que faltarem (soltando o arquivo na caixa do Flow), troca a caixa sozinha para **Elementos** ou **Frames** e faz um vídeo por vez.
 - O Flow não junta frame inicial com elementos no mesmo vídeo: com imagens + "continuar do último frame", o último frame entra como mais um elemento.

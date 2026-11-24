@@ -225,7 +225,14 @@ function normalizeQueue(q) {
   const items = (Array.isArray(q.prompts) ? q.prompts : []).map((p) =>
     typeof p === "string"
       ? { text: p, images: [], inicio: null }
-      : { text: p.texto || p.text || p.prompt || "", images: asList(p.imagens || p.images), inicio: p.inicio || p.start || null },
+      : {
+          text: p.texto || p.text || p.prompt || "",
+          images: asList(p.imagens || p.images),
+          inicio: p.inicio || p.start || null,
+          nome: p.nome || p.name || null,
+          duracao: p.duracao || p.duration || null,
+          continuar: !!(p.continuar || p.continue),
+        },
   );
   items.forEach((it) => (it.text = String(it.text).replace(/\s*\r?\n\s*/g, " ").trim()));
   return { items, globalImages: asList(q.imagens || q.images) };
@@ -236,16 +243,22 @@ function showPack() {
   const names = new Set(pack.globalImages);
   pack.items.forEach((it) => [...it.images, it.inicio].filter(Boolean).forEach((n) => names.add(n)));
   const per = pack.items.filter((it) => it.images.length || it.inicio).length;
+  const cont = pack.items.filter((it) => it.continuar).length;
+  const durs = pack.items.filter((it) => it.duracao).length;
+  const nomes = pack.items.map((it) => it.nome).filter(Boolean);
   box.innerHTML = "";
   const b = document.createElement("b");
-  b.textContent = `📎 Pacote com ${names.size} imagem(ns)`;
+  b.textContent = `📎 Pacote: ${pack.items.length} takes, ${names.size} imagem(ns)`;
   const d = document.createElement("div");
   d.className = "muted";
   d.style.marginTop = "4px";
   d.textContent =
+    (nomes.length ? `Takes: ${nomes.join(", ")}. ` : "") +
     (pack.globalImages.length ? `Em todos os prompts: ${pack.globalImages.join(", ")}. ` : "") +
-    (per ? `${per} prompt(s) com imagem própria. ` : "") +
-    "Ela sobe o que faltar no projeto e troca a caixa para Elementos ou Frames sozinha (um vídeo por vez).";
+    (per ? `${per} take(s) com imagem própria ou frame inicial. ` : "") +
+    (cont ? `${cont} take(s) continuam do último frame do anterior. ` : "") +
+    (durs ? "Cada take troca a própria duração. " : "") +
+    "Ela sobe o que faltar no projeto e ajusta a caixa sozinha (um vídeo por vez).";
   const x = document.createElement("button");
   x.className = "link";
   x.textContent = "tirar as imagens";
@@ -263,6 +276,7 @@ async function packForRun(lines) {
   else {
     addLog("O número de linhas mudou desde que o pacote foi carregado: só as imagens gerais foram mantidas.", "warn");
     items = lines.map((t) => ({ text: t, images: [], inicio: null }));
+    addLog("Nomes, durações e “continuar” por take também foram descartados.", "warn");
   }
   const names = new Set(pack.globalImages);
   items.forEach((it) => [...(it.images || []), it.inicio].filter(Boolean).forEach((n) => names.add(n)));
@@ -283,10 +297,18 @@ function applyQueue(q, source, load = null) {
   const prompts = norm.items.map((it) => it.text);
   $("#prompts").value = prompts.join("\n");
   const hasImages = norm.globalImages.length || norm.items.some((it) => it.images.length || it.inicio);
+  const hasTakes = norm.items.some((it) => it.nome || it.duracao || it.continuar);
   if (hasImages && !load) {
     addLog("Esta fila cita imagens, mas foi aberta como arquivo solto. Use “abrir pasta…” com a pasta do pacote.", "warn");
   }
-  pack = hasImages && load ? { title: q.titulo || source, ...norm, load } : null;
+  const noLoad = async (n) => {
+    throw new Error(n);
+  };
+  pack =
+    (hasImages && load) || hasTakes
+      ? { title: q.titulo || source, ...norm, load: load || noLoad, ...(hasImages && !load ? { globalImages: [] } : {}) }
+      : null;
+  if (pack && hasImages && !load) pack.items.forEach((it) => ((it.images = []), (it.inicio = null)));
   showPack();
   const k = q.kbidflow || {};
   for (const [key, val] of Object.entries(k)) {

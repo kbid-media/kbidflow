@@ -78,18 +78,19 @@ def conferir(fila: dict) -> list[str]:
     textos = [texto_de(p) for p in fila["prompts"]]
     if not textos:
         raise SystemExit("ERRO: a fila não tem prompts.")
-    dur = segundos(fila.get("flow", {}).get("duracao"))
-    for i, p in enumerate(textos, 1):
+    dur_padrao = segundos(fila.get("flow", {}).get("duracao"))
+    for i, (p, bruto) in enumerate(zip(textos, fila["prompts"]), 1):
+        dur_take = segundos(bruto.get("duracao")) if isinstance(bruto, dict) and bruto.get("duracao") else dur_padrao
         if len(p) < 40:
             avisos.append(f"prompt {i}: muito curto ({len(p)} caracteres)")
         if len(p) > 1800:
             avisos.append(f"prompt {i}: muito longo ({len(p)} caracteres), o Flow pode cortar")
         falas = re.findall(r"[\"“]([^\"”]+)[\"”]", p)
-        if falas and dur:
+        if falas and dur_take:
             palavras = sum(len(f.split()) for f in falas)
-            limite = int(dur * PALAVRAS_POR_SEGUNDO)
+            limite = int(dur_take * PALAVRAS_POR_SEGUNDO)
             if palavras > limite:
-                avisos.append(f"prompt {i}: fala com {palavras} palavras para {dur}s (máximo ~{limite})")
+                avisos.append(f"prompt {i}: fala com {palavras} palavras para {dur_take}s (máximo ~{limite})")
     repetidos = {p for p in textos if textos.count(p) > 1}
     if repetidos:
         avisos.append(f"{len(repetidos)} prompt(s) repetido(s) na fila")
@@ -111,10 +112,12 @@ def coletar_imagens(fila: dict, base: Path, prefixo: str) -> tuple[dict[str, Pat
             raise SystemExit(f"ERRO: {p.name} não é PNG, JPG ou WEBP")
         if p.stat().st_size > 15 * 1024 * 1024:
             avisos.append(f"{p.name} tem mais de 15 MB; o envio ao Flow pode demorar")
-        nome = f"{prefixo}_{slug(p.stem)[:40]}{p.suffix.lower()}"
+        # PNG grande vira JPG 95: o pacote vai inteiro numa mensagem do Chrome (limite de 64 MB)
+        ext = ".jpg" if p.suffix.lower() == ".png" and p.stat().st_size > 4 * 1024 * 1024 else p.suffix.lower()
+        nome = f"{prefixo}_{slug(p.stem)[:40]}{ext}"
         n = 2
         while nome in origem and origem[nome] != p:
-            nome = f"{prefixo}_{slug(p.stem)[:40]}-{n}{p.suffix.lower()}"
+            nome = f"{prefixo}_{slug(p.stem)[:40]}-{n}{ext}"
             n += 1
         origem[nome] = p
         return nome
@@ -132,6 +135,13 @@ def coletar_imagens(fila: dict, base: Path, prefixo: str) -> tuple[dict[str, Pat
             item["imagens"] = imgs
         if p.get("inicio") or p.get("start"):
             item["inicio"] = nome_para(p.get("inicio") or p.get("start"))
+        # ajustes por take: nome do arquivo, duração (4/6/8/10 s) e continuar do último frame do take anterior
+        if p.get("nome"):
+            item["nome"] = str(p["nome"])
+        if p.get("duracao"):
+            item["duracao"] = int(re.search(r"\d+", str(p["duracao"])).group())
+        if p.get("continuar"):
+            item["continuar"] = True
         novos.append(item if len(item) > 1 else item["texto"])
     fila["prompts"] = novos
     if not fila["imagens"]:
@@ -174,7 +184,12 @@ def main() -> None:
             destino_img = pasta / ident
             destino_img.mkdir(parents=True, exist_ok=True)
             for nome, arquivo in origem.items():
-                shutil.copy2(arquivo, destino_img / nome)
+                if arquivo.suffix.lower() == ".png" and nome.endswith(".jpg"):
+                    from PIL import Image
+
+                    Image.open(arquivo).convert("RGB").save(destino_img / nome, "JPEG", quality=95)
+                else:
+                    shutil.copy2(arquivo, destino_img / nome)
             saida["pasta"] = ident
         destino = pasta / f"{ident}.json"
         destino.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
