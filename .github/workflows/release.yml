@@ -1,0 +1,24 @@
+# Publica um Release com o .zip da extensão sempre que uma tag vX.Y.Z é enviada.
+# A tag precisa bater com "version" do manifest.json.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir versão
+        run: |
+          V=$(jq -r .version manifest.json)
+          test "v$V" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} diferente da versão $V do manifest"; exit 1; }
+          echo "V=$V" >> "$GITHUB_ENV"
+      - name: Empacotar
+        run: zip -r "KbidFlow-$V.zip" manifest.json background.js content.js sidepanel.html sidepanel.css sidepanel.js icons filas README.md
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" "KbidFlow-$V.zip" --title "KbidFlow $V" --generate-notes
