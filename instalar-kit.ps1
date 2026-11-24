@@ -1,16 +1,19 @@
-# Kit da equipe: extensão KbidFlow + skill dos vídeos do Rodrigo e do Davi (repositório privado).
+# Kit da equipe: extensão KbidFlow + skill dos vídeos do Rodrigo e do Davi.
 # Uso (PowerShell):
 #   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kbideditor1/kbidflow/main/instalar-kit.ps1)))
 # Só conferir, sem instalar nada:  ... -Simular
-# Nada secreto mora aqui: o acesso à skill vem do login do GitHub de quem roda, e a chave do ElevenLabs
-# é colada na hora e fica só nas variáveis de usuário do Windows.
+# Nada secreto mora aqui: as fotos vêm num .zip mandado no privado e a chave do ElevenLabs
+# é colada na hora (fica só nas variáveis de usuário do Windows).
 
 param(
     [string]$RepoSkill = "kbideditor1/ev-avatar-flow",
+    [string]$ZipFotos = "",
     [switch]$Simular
 )
 
 $ErrorActionPreference = "Continue"
+$ProgressPreference = "SilentlyContinue"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $resumo = [ordered]@{}
 $skillDir = Join-Path $env:USERPROFILE ".claude\skills\ev-avatar-flow"
 
@@ -32,6 +35,7 @@ function PythonOk {
     $v = & python -c "import sys; print(sys.version_info[0])" 2>$null
     return ($v -eq "3")
 }
+function FotosOk { Test-Path (Join-Path $skillDir "personagens\rodrigo\sheet.jpg") }
 
 Write-Host "Kit da equipe KbidFlow: vou preparar tudo. Siga o que aparecer na tela." -ForegroundColor Green
 
@@ -45,37 +49,44 @@ try {
     }
 } catch { $resumo["Extensão KbidFlow"] = "ERRO: $($_.Exception.Message)" }
 
-# 2. Git e GitHub
-Passo 2 "Git e login no GitHub"
-if (-not (Tem git)) { Instalar "Git" "Git.Git" | Out-Null }
-if (-not (Tem gh)) { Instalar "GitHub CLI" "GitHub.cli" | Out-Null }
-if (Tem gh) {
-    gh auth status *> $null
-    if ($LASTEXITCODE -ne 0 -and -not $Simular) {
-        Write-Host "  Vai abrir o navegador: entre no GitHub e clique em Authorize." -ForegroundColor Yellow
-        gh auth login --web --git-protocol https --hostname github.com
-    }
-    gh auth status *> $null
-    if ($LASTEXITCODE -eq 0) {
-        if (-not $Simular) { gh auth setup-git *> $null }
-        $resumo["Login no GitHub"] = "OK"
-    } else { $resumo["Login no GitHub"] = "FALTA: rode de novo e faça o login" }
-} else { $resumo["Login no GitHub"] = "FALTA: GitHub CLI não instalado" }
-
-# 3. Skill dos vídeos do Rodrigo e do Davi
-Passo 3 "Skill dos vídeos do Rodrigo e do Davi"
+# 2. Skill dos vídeos do Rodrigo e do Davi (repositório público, sem as fotos)
+Passo 2 "Skill dos vídeos do Rodrigo e do Davi"
 $item = Get-Item $skillDir -Force -ErrorAction SilentlyContinue
 if ($item -and ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
     $resumo["Skill Rodrigo/Davi"] = "OK (atalho para outra pasta, mantido)"
-} elseif (Test-Path (Join-Path $skillDir ".git")) {
-    if (-not $Simular) { git -C $skillDir pull --ff-only *> $null }
-    $resumo["Skill Rodrigo/Davi"] = if ($LASTEXITCODE -eq 0 -or $Simular) { "OK (atualizada)" } else { "ERRO ao atualizar (git pull)" }
 } elseif ($Simular) {
-    $resumo["Skill Rodrigo/Davi"] = "simulado: clonaria $RepoSkill"
+    $resumo["Skill Rodrigo/Davi"] = "simulado: baixaria $RepoSkill"
 } else {
-    New-Item -ItemType Directory -Force -Path (Split-Path $skillDir) | Out-Null
-    gh repo clone $RepoSkill $skillDir *> $null
-    $resumo["Skill Rodrigo/Davi"] = if (Test-Path (Join-Path $skillDir "SKILL.md")) { "OK" } else { "FALTA ACESSO: peça para a equipe te adicionar no repositório" }
+    try {
+        $tmp = Join-Path $env:TEMP ("kbid-skill-" + [guid]::NewGuid().ToString("N"))
+        New-Item -ItemType Directory -Path $tmp | Out-Null
+        $zip = Join-Path $tmp "skill.zip"
+        Invoke-WebRequest "https://codeload.github.com/$RepoSkill/zip/refs/heads/main" -OutFile $zip -UseBasicParsing
+        Expand-Archive $zip -DestinationPath $tmp -Force
+        $raiz = Get-ChildItem $tmp -Directory | Select-Object -First 1
+        New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
+        # copia por cima: atualiza a skill e mantém as fotos que já estão lá
+        Copy-Item (Join-Path $raiz.FullName "*") $skillDir -Recurse -Force
+        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
+        $resumo["Skill Rodrigo/Davi"] = "OK"
+    } catch { $resumo["Skill Rodrigo/Davi"] = "ERRO ao baixar: $($_.Exception.Message)" }
+}
+
+# 3. Fotos e sheets (zip mandado no privado)
+Passo 3 "Fotos do Rodrigo e do Davi"
+if (FotosOk) { $resumo["Fotos"] = "OK (já estavam)" }
+elseif ($Simular) { $resumo["Fotos"] = "simulado: pediria o fotos_rodrigo_davi.zip" }
+else {
+    $caminho = $ZipFotos
+    if (-not $caminho) {
+        Write-Host "  Arraste aqui o arquivo fotos_rodrigo_davi.zip (que te mandaram no WhatsApp)" -ForegroundColor Yellow
+        $caminho = Read-Host "  e aperte Enter (ou só Enter para pular)"
+    }
+    $caminho = $caminho.Trim().Trim('"').Trim("'")
+    if ($caminho -and (Test-Path $caminho)) {
+        Expand-Archive $caminho -DestinationPath $skillDir -Force
+        $resumo["Fotos"] = if (FotosOk) { "OK" } else { "ERRO: o zip não tem personagens\rodrigo\sheet.jpg" }
+    } else { $resumo["Fotos"] = "FALTA: rode de novo e arraste o fotos_rodrigo_davi.zip" }
 }
 
 # 4. Python e pacotes
