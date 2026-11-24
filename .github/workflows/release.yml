@@ -17,7 +17,7 @@ jobs:
           test "v$V" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} diferente da versão $V do manifest"; exit 1; }
           echo "V=$V" >> "$GITHUB_ENV"
       - name: Empacotar
-        run: zip -r "KbidFlow-$V.zip" manifest.json background.js content.js sidepanel.html sidepanel.css sidepanel.js icons filas README.md skill
+        run: zip -r "KbidFlow-$V.zip" manifest.json background.js content.js sidepanel.html sidepanel.css sidepanel.js icons README.md
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}

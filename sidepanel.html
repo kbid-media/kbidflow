@@ -15,104 +15,32 @@
   <div class="row small">
     <span id="countVideos">– vídeos</span>
     <span id="countGen">– gerando</span>
-    <span id="detect">prompt: –</span>
   </div>
   <div id="statusText" class="status">Abra um projeto no Google Flow.</div>
   <div class="bar"><div id="bar"></div></div>
 </section>
 
-<nav class="tabs">
-  <button data-tab="gen" class="active">Gerar</button>
-  <button data-tab="dl">Baixar</button>
-  <button data-tab="cfg">Ajustes</button>
-</nav>
-
-<section class="card tab" id="tab-gen">
-  <label>Filas prontas (feitas pela skill)</label>
-  <div class="row">
-    <select id="queueList"><option value="">— nenhuma —</option></select>
-    <button id="queueLoad" class="btn">Carregar</button>
-  </div>
-  <div class="row small">
-    <button id="queueRefresh" class="link">atualizar lista</button>
-    <span>
-      <label class="link filepick">abrir arquivo… <input id="queueFile" type="file" accept=".json,.txt" hidden /></label>
-      ·
-      <label class="link filepick">abrir pasta (prompts + imagens)… <input id="queueFolder" type="file" webkitdirectory hidden /></label>
-    </span>
-  </div>
-  <div class="row small">
-    <button id="copyTitles" class="link">📋 copiar títulos do projeto (para colar na conversa com o Claude)</button>
-  </div>
-  <div id="flowCheck" class="flowcheck hidden"></div>
-  <div id="packInfo" class="flowcheck hidden"></div>
-  <label>Prompts (um por linha)</label>
-  <textarea id="prompts" rows="9" placeholder="Um homem de camisa azul falando para a câmera…&#10;Close no rosto dele sorrindo…"></textarea>
-  <div class="small muted" id="promptCount">0 prompts</div>
-  <p class="hint">Modelo, proporção, duração e quantidade por prompt são os que estiverem escolhidos na caixa do próprio Flow.</p>
-  <div class="grid2">
-    <div>
-      <label>Velocidade</label>
-      <select id="speed">
-        <option value="fast">Rápido (3 ao mesmo tempo)</option>
-        <option value="balanced">Equilibrado (2)</option>
-        <option value="slow">Lento (1)</option>
-        <option value="custom">Personalizado</option>
-      </select>
-    </div>
-    <div>
-      <label>Ao mesmo tempo</label>
-      <input id="maxParallel" type="number" min="1" max="8" value="3" />
-    </div>
-    <div>
-      <label>Intervalo entre envios (s)</label>
-      <input id="genGapSec" type="number" min="0" max="120" value="5" />
-    </div>
-    <div>
-      <label>Desistir se parado (min)</label>
-      <input id="genTimeoutMin" type="number" min="1" max="180" value="30" />
-    </div>
-  </div>
-  <label class="check"><input id="chainFrames" type="checkbox" /> Continuar do último frame (um vídeo por vez, cada um começa onde o anterior terminou)</label>
-  <label class="check"><input id="thenDownload" type="checkbox" checked /> Baixar os vídeos gerados quando terminar</label>
-  <div class="actions">
-    <button id="btnGen" class="primary">Gerar fila</button>
-    <button class="stop">Parar</button>
-  </div>
-</section>
-
-<section class="card tab hidden" id="tab-dl">
-  <p class="hint">Baixa os vídeos do projeto aberto, um de cada vez: abre ⋮ › Download › qualidade, espera o upscale do Flow e o Chrome começar o arquivo, então passa ao próximo.</p>
-  <div class="grid2">
-    <div>
-      <label>Quantos (0 = todos)</label>
-      <input id="limit" type="number" min="0" value="0" />
-    </div>
-    <div>
-      <label>Ordem</label>
-      <input value="mais novo primeiro (como no Flow)" disabled />
-    </div>
-  </div>
+<section class="card">
+  <p class="hint">Baixa os vídeos do projeto aberto, um de cada vez, em <b id="qualityHint">1080p</b>. Deixe a aba do Flow na frente enquanto baixa.</p>
   <div class="pickbox">
-    <label class="check"><input id="pickMode" type="checkbox" /> Escolher os vídeos no Flow (caixinha em cada vídeo)</label>
+    <label class="check"><input id="pickMode" type="checkbox" /> Escolher os vídeos (aparece uma caixinha em cada um)</label>
     <div class="row small">
-      <span id="pickedCount" class="muted">nenhum marcado = baixa todos</span>
+      <span id="pickedCount" class="muted">desligado: baixa todos</span>
       <span>
         <button id="pickAll" class="link">marcar visíveis</button>
         <button id="pickClear" class="link">limpar</button>
       </span>
     </div>
   </div>
-  <label class="check"><input id="skipSaved" type="checkbox" checked /> Pular o que já baixei neste projeto</label>
-  <label class="check"><input id="includeImages" type="checkbox" /> Incluir imagens</label>
+  <label class="check"><input id="skipSaved" type="checkbox" checked /> Pular o que eu já baixei neste projeto</label>
   <div class="actions">
     <button id="btnDl" class="primary">Baixar vídeos</button>
     <button class="stop">Parar</button>
   </div>
-  <button id="btnClearHist" class="link">Esquecer o que já foi baixado neste projeto</button>
 </section>
 
-<section class="card tab hidden" id="tab-cfg">
+<details class="card" id="cfg">
+  <summary>Ajustes</summary>
   <div class="grid2">
     <div>
       <label>Qualidade do vídeo</label>
@@ -124,12 +52,8 @@
       </select>
     </div>
     <div>
-      <label>Qualidade da imagem</label>
-      <select id="imageQuality">
-        <option value="2K">2K</option>
-        <option value="1K">1K</option>
-        <option value="4K">4K</option>
-      </select>
+      <label>Quantos (0 = todos)</label>
+      <input id="limit" type="number" min="0" value="0" />
     </div>
     <div>
       <label>Pasta em Downloads</label>
@@ -151,18 +75,20 @@
       <label>Pausa entre downloads (s)</label>
       <input id="gapSec" type="number" min="0" max="60" value="3" />
     </div>
+    <div>
+      <label>Qualidade da imagem</label>
+      <select id="imageQuality">
+        <option value="2K">2K</option>
+        <option value="1K">1K</option>
+        <option value="4K">4K</option>
+      </select>
+    </div>
   </div>
-  <label class="check"><input id="fallback720" type="checkbox" /> Se o 1080p continuar bloqueado depois de 4 tentativas (~8 min), baixar em 720p em vez de pular</label>
+  <label class="check"><input id="includeImages" type="checkbox" /> Baixar também as imagens</label>
+  <label class="check"><input id="fallback720" type="checkbox" /> Se o 1080p continuar bloqueado (~8 min), baixar em 720p em vez de pular</label>
   <label class="check"><input id="allowCredits" type="checkbox" /> Permitir confirmar quando o Flow pedir créditos (ex.: 4K)</label>
-
-  <h3>Calibrar (só se o prompt não for detectado)</h3>
-  <div class="actions">
-    <button id="calPrompt">Caixa de prompt</button>
-    <button id="calSend">Botão de enviar</button>
-    <button id="calReset" class="link">Limpar</button>
-  </div>
-  <div id="calibInfo" class="small muted"></div>
-</section>
+  <button id="btnClearHist" class="link">Esquecer o que já foi baixado neste projeto</button>
+</details>
 
 <section class="card">
   <div class="row"><label>Registro</label><button id="clearLog" class="link">limpar</button></div>

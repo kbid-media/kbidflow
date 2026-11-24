@@ -69,3 +69,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 #log .error { color: var(--err); }
 #log .warn { color: var(--warn); }
 #log .success { color: var(--ok); }
+details.card > summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--muted); list-style: none; }
+details.card > summary::before { content: "⚙ "; }
+details.card[open] > summary { color: var(--text); margin-bottom: 8px; }

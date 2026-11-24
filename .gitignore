@@ -1,6 +1,6 @@
-filas/*
-!filas/index.json
 __pycache__/
 *.pyc
 .claude/
 dist/
+filas/
+skill/

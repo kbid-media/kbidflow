@@ -7,7 +7,7 @@ $dist = Join-Path $raiz "dist"
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $saida = Join-Path $dist "KbidFlow-$versao.zip"
 if (Test-Path $saida) { Remove-Item $saida -Force }
-$itens = @("manifest.json", "background.js", "content.js", "sidepanel.html", "sidepanel.css", "sidepanel.js", "icons", "filas", "README.md", "skill") |
+$itens = @("manifest.json", "background.js", "content.js", "sidepanel.html", "sidepanel.css", "sidepanel.js", "icons", "README.md") |
     ForEach-Object { Join-Path $raiz $_ }
 Compress-Archive -Path $itens -DestinationPath $saida
 Write-Host "OK: $saida"

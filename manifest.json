@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "KbidFlow",
-  "version": "1.4.0",
-  "description": "Gera vídeos em fila no Google Flow e baixa em 1080p, um por vez.",
+  "version": "2.0.0",
+  "description": "Baixa os vídeos do Google Flow em 1080p, um por vez, esperando o upscale.",
   "permissions": ["sidePanel", "storage", "downloads", "tabs", "scripting", "contentSettings"],
   "host_permissions": ["https://flow.google.com/*", "https://labs.google/*"],
   "background": { "service_worker": "background.js" },
