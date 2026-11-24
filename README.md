@@ -36,6 +36,25 @@ Peça ao Claude "monta a fila do Flow para N vídeos de …". A skill escreve os
 No painel: **Gerar** › **atualizar lista** › escolha a fila › **Carregar**. O quadro amarelo diz como deixar a caixa do Flow (modelo, proporção, duração). Depois clique em **Gerar fila**.
 Também dá para abrir um `.json` ou `.txt` (um prompt por linha) com **abrir arquivo…**.
 
+### Pacote com imagens de referência
+Uma fila pode trazer imagens junto com os prompts:
+
+```json
+{
+  "imagens": ["sheet_rodrigo.jpg"],
+  "prompts": [
+    "texto do prompt 1",
+    {"texto": "texto do prompt 2", "imagens": ["escritorio.jpg"]},
+    {"texto": "texto do prompt 3", "inicio": "frame_inicial.png"}
+  ]
+}
+```
+
+- `imagens` no topo entram em todos os prompts; dentro de um prompt, só naquele; `inicio` é o frame inicial daquele vídeo.
+- **abrir pasta (prompts + imagens)…**: escolha uma pasta do computador com o `.json` (ou um `prompts.txt`) e as imagens. Se o arquivo não citar imagens, todas as imagens da pasta entram em todos os prompts.
+- Ao gerar, a KbidFlow sobe ao projeto as imagens que faltarem (soltando o arquivo na caixa do Flow), troca a caixa sozinha para **Elementos** ou **Frames** e faz um vídeo por vez.
+- O Flow não junta frame inicial com elementos no mesmo vídeo: com imagens + "continuar do último frame", o último frame entra como mais um elemento.
+
 A skill está em `skill/kbidflow-prompts`. O instalador já a coloca no Claude Code (`%USERPROFILE%\.claude\skills\`) de quem tem o Claude Code instalado.
 As filas são gravadas em toda KbidFlow instalada na máquina; para outra pasta, use `--pasta <pasta-da-extensão>\filas`.
 

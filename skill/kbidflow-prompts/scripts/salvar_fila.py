@@ -1,4 +1,4 @@
-"""Salva uma fila de prompts para a extensão KbidFlow e atualiza o índice que o painel lê.
+"""Salva uma fila (pacote) de prompts e imagens para a extensão KbidFlow e atualiza o índice que o painel lê.
 
 Uso:
     python salvar_fila.py rascunho.json            (grava em todas as KbidFlow instaladas)
@@ -7,13 +7,19 @@ Uso:
 O rascunho é um JSON com:
 {
   "titulo": "Economia Viva - dicas de cartão",
-  "flow": {"modelo": "Veo 3.1 - Fast", "modo": "Texto para vídeo", "proporcao": "9:16",
+  "flow": {"modelo": "Veo 3.1 - Fast", "modo": "Elementos", "proporcao": "9:16",
            "duracao": "8s", "por_prompt": 1, "observacoes": "..."},
   "kbidflow": {"quality": "1080p", "folder": "KbidFlow/dicas-cartao", "prefix": "",
-               "startNumber": 1, "maxParallel": 2, "thenDownload": true},
-  "prompts": ["prompt 1", "prompt 2"]
+               "startNumber": 1, "maxParallel": 2, "chainFrames": false, "thenDownload": true},
+  "imagens": ["D:/IA/.../sheet_rodrigo.jpg"],              (opcional: entram em todos os prompts)
+  "prompts": [
+    "prompt só de texto",
+    {"texto": "prompt com imagens", "imagens": ["C:/fotos/escritorio.jpg"], "inicio": "C:/fotos/frame1.png"}
+  ]
 }
-Grava filas/<AAAA-MM-DD>_<slug>.json e acrescenta a fila em filas/index.json.
+Caminhos de imagem podem ser absolutos ou relativos ao rascunho. As imagens são copiadas para
+filas/<id>/ com o prefixo da fila (o nome vira o nome da mídia no Flow) e a fila grava "pasta": "<id>".
+Grava filas/<id>.json e acrescenta a fila em filas/index.json.
 """
 
 from __future__ import annotations
@@ -23,6 +29,7 @@ import datetime as dt
 import json
 import os
 import re
+import shutil
 import sys
 import unicodedata
 from pathlib import Path
@@ -30,6 +37,8 @@ from pathlib import Path
 # Onde a extensão pode estar instalada: a pasta do repositório e a pasta do instalador (instalar.ps1).
 # A fila é gravada em todas as que existirem. KBIDFLOW_FILAS força uma pasta específica.
 EXTENSOES = [Path("D:/IA/KbidFlow"), Path(os.environ.get("LOCALAPPDATA", "")) / "KbidFlow" / "extensao"]
+PALAVRAS_POR_SEGUNDO = 2.6  # fala natural em português; acima disso o Veo corta ou acelera
+EXT_IMAGEM = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 def pastas_padrao() -> list[Path]:
@@ -39,7 +48,6 @@ def pastas_padrao() -> list[Path]:
     if not achadas:
         raise SystemExit("ERRO: não achei a KbidFlow instalada. Use --pasta <pasta-da-extensão>/filas.")
     return achadas
-PALAVRAS_POR_SEGUNDO = 2.6  # fala natural em português; acima disso o Veo corta ou acelera
 
 
 def slug(texto: str) -> str:
@@ -57,13 +65,21 @@ def segundos(duracao: str | int | None) -> int | None:
     return int(m.group()) if m else None
 
 
+def texto_de(p) -> str:
+    return uma_linha(p if isinstance(p, str) else (p.get("texto") or p.get("text") or ""))
+
+
+def lista(v) -> list[str]:
+    return [str(x) for x in (v if isinstance(v, list) else [v] if v else [])]
+
+
 def conferir(fila: dict) -> list[str]:
     avisos: list[str] = []
-    prompts = fila["prompts"]
-    if not prompts:
+    textos = [texto_de(p) for p in fila["prompts"]]
+    if not textos:
         raise SystemExit("ERRO: a fila não tem prompts.")
     dur = segundos(fila.get("flow", {}).get("duracao"))
-    for i, p in enumerate(prompts, 1):
+    for i, p in enumerate(textos, 1):
         if len(p) < 40:
             avisos.append(f"prompt {i}: muito curto ({len(p)} caracteres)")
         if len(p) > 1800:
@@ -74,10 +90,53 @@ def conferir(fila: dict) -> list[str]:
             limite = int(dur * PALAVRAS_POR_SEGUNDO)
             if palavras > limite:
                 avisos.append(f"prompt {i}: fala com {palavras} palavras para {dur}s (máximo ~{limite})")
-    repetidos = {p for p in prompts if prompts.count(p) > 1}
+    repetidos = {p for p in textos if textos.count(p) > 1}
     if repetidos:
         avisos.append(f"{len(repetidos)} prompt(s) repetido(s) na fila")
     return avisos
+
+
+def coletar_imagens(fila: dict, base: Path, prefixo: str) -> tuple[dict[str, Path], list[str]]:
+    """Troca os caminhos das imagens por nomes do pacote. Devolve {nome_no_pacote: arquivo_original} e avisos."""
+    origem: dict[str, Path] = {}
+    avisos: list[str] = []
+
+    def nome_para(caminho: str) -> str:
+        p = Path(caminho)
+        if not p.is_absolute():
+            p = (base / p).resolve()
+        if not p.exists():
+            raise SystemExit(f"ERRO: imagem não encontrada: {p}")
+        if p.suffix.lower() not in EXT_IMAGEM:
+            raise SystemExit(f"ERRO: {p.name} não é PNG, JPG ou WEBP")
+        if p.stat().st_size > 15 * 1024 * 1024:
+            avisos.append(f"{p.name} tem mais de 15 MB; o envio ao Flow pode demorar")
+        nome = f"{prefixo}_{slug(p.stem)[:40]}{p.suffix.lower()}"
+        n = 2
+        while nome in origem and origem[nome] != p:
+            nome = f"{prefixo}_{slug(p.stem)[:40]}-{n}{p.suffix.lower()}"
+            n += 1
+        origem[nome] = p
+        return nome
+
+    fila["imagens"] = [nome_para(c) for c in lista(fila.get("imagens") or fila.get("images"))]
+    fila.pop("images", None)
+    novos = []
+    for p in fila["prompts"]:
+        if isinstance(p, str):
+            novos.append(uma_linha(p))
+            continue
+        item = {"texto": texto_de(p)}
+        imgs = [nome_para(c) for c in lista(p.get("imagens") or p.get("images"))]
+        if imgs:
+            item["imagens"] = imgs
+        if p.get("inicio") or p.get("start"):
+            item["inicio"] = nome_para(p.get("inicio") or p.get("start"))
+        novos.append(item if len(item) > 1 else item["texto"])
+    fila["prompts"] = novos
+    if not fila["imagens"]:
+        fila.pop("imagens")
+    return origem, avisos
 
 
 def main() -> None:
@@ -89,7 +148,7 @@ def main() -> None:
 
     fila = json.loads(args.rascunho.read_text(encoding="utf-8"))
     fila["titulo"] = uma_linha(fila.get("titulo") or args.rascunho.stem)
-    fila["prompts"] = [uma_linha(p) for p in fila.get("prompts", []) if uma_linha(p)]
+    fila["prompts"] = [p for p in fila.get("prompts", []) if texto_de(p)]
     fila.setdefault("flow", {})
     k = fila.setdefault("kbidflow", {})
     k.setdefault("quality", "1080p")
@@ -100,25 +159,34 @@ def main() -> None:
     fila["criada"] = hoje
 
     avisos = conferir(fila)
+    origem, avisos_img = coletar_imagens(fila, args.rascunho.resolve().parent, slug(fila["titulo"])[:20])
+    avisos += avisos_img
 
     for pasta in pastas:
         pasta.mkdir(parents=True, exist_ok=True)
-        nome = f"{hoje}_{slug(fila['titulo'])}.json"
-        destino = pasta / nome
+        ident = f"{hoje}_{slug(fila['titulo'])}"
         n = 2
-        while destino.exists():
-            nome = f"{hoje}_{slug(fila['titulo'])}-v{n}.json"
-            destino = pasta / nome
+        while (pasta / f"{ident}.json").exists():
+            ident = f"{hoje}_{slug(fila['titulo'])}-v{n}"
             n += 1
-        destino.write_text(json.dumps(fila, ensure_ascii=False, indent=2), encoding="utf-8")
+        saida = dict(fila)
+        if origem:
+            destino_img = pasta / ident
+            destino_img.mkdir(parents=True, exist_ok=True)
+            for nome, arquivo in origem.items():
+                shutil.copy2(arquivo, destino_img / nome)
+            saida["pasta"] = ident
+        destino = pasta / f"{ident}.json"
+        destino.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
 
         idx_path = pasta / "index.json"
         idx = json.loads(idx_path.read_text(encoding="utf-8")) if idx_path.exists() else {"filas": []}
         idx.setdefault("filas", []).append(
-            {"arquivo": nome, "titulo": fila["titulo"], "criada": hoje, "prompts": len(fila["prompts"])}
+            {"arquivo": destino.name, "titulo": fila["titulo"], "criada": hoje, "prompts": len(fila["prompts"]),
+             "imagens": len(origem)}
         )
         idx_path.write_text(json.dumps(idx, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"OK: {destino}")
+        print(f"OK: {destino}" + (f"  (+{len(origem)} imagens em {destino.parent / ident})" if origem else ""))
 
     print(f"{len(fila['prompts'])} prompts · pasta de download: Downloads/{k['folder']}")
     for a in avisos:

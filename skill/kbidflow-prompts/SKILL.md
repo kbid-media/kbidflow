@@ -8,16 +8,17 @@ description: Escreve todos os prompts de uma série de vídeos para o Google Flo
 A extensão KbidFlow (`D:\IA\KbidFlow`) digita cada prompt na caixa do Flow, respeita o limite de gerações ao mesmo tempo e, no fim, baixa os vídeos novos em 1080p, numerados na ordem da fila.
 Esta skill escreve esses prompts e salva a fila em `D:\IA\KbidFlow\filas\`. O painel da extensão lista essa pasta e carrega com um clique.
 
-Limite da extensão: ela só envia **texto**. Modelo, proporção, duração, quantidade por prompt e imagem de referência ficam como estiverem na caixa do Flow.
-Take com frame inicial do Davi ou do Rodrigo continua sendo da `ev-avatar-flow`.
+A extensão envia texto + imagens (de referência e frame inicial) e troca sozinha a caixa entre Elementos e Frames. Modelo, proporção, duração e quantidade por prompt ficam como estiverem na caixa do Flow: diga ao usuário como deixar.
+Take falado do Davi ou do Rodrigo com voz clonada continua sendo da `ev-avatar-flow`; para um lote deles, a fila pode usar o character sheet da ficha como imagem em todos os prompts.
 
-## Etapa 1: briefing (até 5 perguntas, só o que faltar)
+## Etapa 1: briefing (até 6 perguntas, só o que faltar)
 
 1. **Tema e objetivo**: o que a série mostra e para onde vai (Reels, anúncio, aula, B-roll).
 2. **Quantos vídeos** e se cada um é uma cena diferente ou variações da mesma.
 3. **Personagem**: quem aparece. Se for o mesmo em todos, peça ou monte uma descrição fixa (idade, rosto, cabelo, barba, óculos, roupa). Para Davi/Rodrigo, use a ficha em `D:\IA\Skills\ev-avatar-flow\personagens\<id>\ficha.json`.
 4. **Formato**: 9:16 ou 16:9; duração 4, 6 ou 8 s; modelo (Veo 3.1 Fast é o padrão; Quality para hero shots).
 5. **Fala**: com fala (qual texto, em português do Brasil?) ou só imagem com som ambiente.
+6. **Imagens de referência** (se o usuário usa imagens + prompt): quais arquivos entram em **todos** os vídeos (ex.: character sheet) e quais só em vídeos específicos (cenário, produto). Peça os caminhos no computador. Um vídeo pode também ter um **frame inicial** próprio.
 
 Se o usuário já mandou roteiro ou lista de cenas, não pergunte de novo: use o que veio.
 
@@ -63,9 +64,18 @@ Monte o rascunho em `<scratchpad>/fila.json`:
     "chainFrames": false,
     "thenDownload": true
   },
-  "prompts": ["prompt 1 numa linha", "prompt 2 numa linha"]
+  "imagens": ["D:/caminho/sheet_rodrigo.jpg"],
+  "prompts": [
+    "prompt 1 numa linha",
+    {"texto": "prompt 2 numa linha", "imagens": ["D:/caminho/escritorio.jpg"]},
+    {"texto": "prompt 3 numa linha", "inicio": "D:/caminho/frame_inicial.png"}
+  ]
 }
 ```
+
+**Imagens (pacote):** `imagens` no topo entram em todos os prompts; `imagens` dentro de um prompt só naquele; `inicio` é o frame inicial daquele vídeo. Sem imagens, use só textos e apague as chaves. O script copia os arquivos para dentro da fila (nome = `<fila>_<arquivo>`, que vira o nome da mídia no Flow). Na hora de gerar, a KbidFlow sobe o que faltar no projeto (soltando o arquivo na caixa), troca a caixa sozinha para **Elementos** (imagens) ou **Frames** (início/último frame) e faz um vídeo por vez.
+- O Flow não junta frame inicial com elementos no mesmo vídeo. Com imagens + `chainFrames`, o último frame entra como mais um elemento. Com imagens + `inicio`, vale o modo Elementos e o `inicio` é ignorado; avise o usuário e prefira um ou outro.
+- Escreva o prompt sabendo que as imagens estão lá: "o homem da imagem de referência…", sem redescrever o rosto em detalhe.
 
 Depois rode:
 

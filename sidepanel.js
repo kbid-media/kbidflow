@@ -138,6 +138,13 @@ async function start(action) {
   await saveSettings();
   const s = settingsForRun();
   if (action === "generate" && !s.prompts.length) return addLog("Escreva pelo menos um prompt.", "error");
+  if (action === "generate" && pack) {
+    try {
+      Object.assign(s, await packForRun(s.prompts));
+    } catch (e) {
+      return addLog(`Pacote: ${e.message}`, "error");
+    }
+  }
   try {
     const r = await cmd(action, { settings: s });
     if (!r?.ok) addLog(r?.error || "Não começou", "error");
@@ -201,11 +208,86 @@ async function listQueues() {
   sel.textContent = "";
   const none = new Option(queues.length ? "— escolha uma fila —" : "— nenhuma fila na pasta —", "");
   sel.add(none);
-  for (const q of queues) sel.add(new Option(`${q.titulo || q.arquivo} (${q.prompts ?? "?"} prompts${q.criada ? " · " + q.criada : ""})`, q.arquivo));
+  for (const q of queues) sel.add(new Option(`${q.titulo || q.arquivo} (${q.prompts ?? "?"} prompts${q.imagens ? ` · ${q.imagens} imagens` : ""}${q.criada ? " · " + q.criada : ""})`, q.arquivo));
 }
-function applyQueue(q, source) {
-  const prompts = Array.isArray(q.prompts) ? q.prompts : [];
-  $("#prompts").value = prompts.map((p) => String(p).replace(/\s*\r?\n\s*/g, " ").trim()).join("\n");
+// ---------- pacote: prompts + imagens ----------
+// prompts: ["texto", {"texto": "...", "imagens": ["a.jpg"], "inicio": "frame.png"}]; "imagens" no topo valem para todos.
+let pack = null; // { title, items:[{text,images,inicio}], globalImages:[], load(name) -> dataURL }
+const blobToDataUrl = (blob) =>
+  new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = () => rej(fr.error);
+    fr.readAsDataURL(blob);
+  });
+const asList = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(String).filter(Boolean);
+function normalizeQueue(q) {
+  const items = (Array.isArray(q.prompts) ? q.prompts : []).map((p) =>
+    typeof p === "string"
+      ? { text: p, images: [], inicio: null }
+      : { text: p.texto || p.text || p.prompt || "", images: asList(p.imagens || p.images), inicio: p.inicio || p.start || null },
+  );
+  items.forEach((it) => (it.text = String(it.text).replace(/\s*\r?\n\s*/g, " ").trim()));
+  return { items, globalImages: asList(q.imagens || q.images) };
+}
+function showPack() {
+  const box = $("#packInfo");
+  if (!pack) return box.classList.add("hidden");
+  const names = new Set(pack.globalImages);
+  pack.items.forEach((it) => [...it.images, it.inicio].filter(Boolean).forEach((n) => names.add(n)));
+  const per = pack.items.filter((it) => it.images.length || it.inicio).length;
+  box.innerHTML = "";
+  const b = document.createElement("b");
+  b.textContent = `📎 Pacote com ${names.size} imagem(ns)`;
+  const d = document.createElement("div");
+  d.className = "muted";
+  d.style.marginTop = "4px";
+  d.textContent =
+    (pack.globalImages.length ? `Em todos os prompts: ${pack.globalImages.join(", ")}. ` : "") +
+    (per ? `${per} prompt(s) com imagem própria. ` : "") +
+    "Ela sobe o que faltar no projeto e troca a caixa para Elementos ou Frames sozinha (um vídeo por vez).";
+  const x = document.createElement("button");
+  x.className = "link";
+  x.textContent = "tirar as imagens";
+  x.onclick = () => {
+    pack = null;
+    showPack();
+    addLog("Imagens do pacote removidas; a fila usa só o texto.");
+  };
+  box.append(b, d, x);
+  box.classList.remove("hidden");
+}
+async function packForRun(lines) {
+  let items;
+  if (lines.length === pack.items.length) items = lines.map((t, i) => ({ ...pack.items[i], text: t }));
+  else {
+    addLog("O número de linhas mudou desde que o pacote foi carregado: só as imagens gerais foram mantidas.", "warn");
+    items = lines.map((t) => ({ text: t, images: [], inicio: null }));
+  }
+  const names = new Set(pack.globalImages);
+  items.forEach((it) => [...(it.images || []), it.inicio].filter(Boolean).forEach((n) => names.add(n)));
+  const assets = {};
+  for (const n of names) {
+    try {
+      assets[n] = await pack.load(n);
+    } catch (e) {
+      throw new Error(`não achei a imagem "${n}" no pacote`);
+    }
+  }
+  addLog(`📎 ${names.size} imagem(ns) do pacote prontas para enviar.`);
+  return { items, globalImages: pack.globalImages, assets };
+}
+
+function applyQueue(q, source, load = null) {
+  const norm = normalizeQueue(q);
+  const prompts = norm.items.map((it) => it.text);
+  $("#prompts").value = prompts.join("\n");
+  const hasImages = norm.globalImages.length || norm.items.some((it) => it.images.length || it.inicio);
+  if (hasImages && !load) {
+    addLog("Esta fila cita imagens, mas foi aberta como arquivo solto. Use “abrir pasta…” com a pasta do pacote.", "warn");
+  }
+  pack = hasImages && load ? { title: q.titulo || source, ...norm, load } : null;
+  showPack();
   const k = q.kbidflow || {};
   for (const [key, val] of Object.entries(k)) {
     const el = document.getElementById(key);
@@ -241,7 +323,14 @@ $("#queueLoad").addEventListener("click", async () => {
   if (!file) return addLog("Escolha uma fila na lista.", "warn");
   try {
     const r = await fetch(chrome.runtime.getURL("filas/" + file) + "?t=" + Date.now(), { cache: "no-store" });
-    applyQueue(await r.json(), file);
+    const q = await r.json();
+    const base = "filas/" + (q.pasta ? q.pasta.replace(/^\/+|\/+$/g, "") + "/" : "");
+    const load = async (name) => {
+      const res = await fetch(chrome.runtime.getURL(base + name), { cache: "no-store" });
+      if (!res.ok) throw new Error(res.status);
+      return blobToDataUrl(await res.blob());
+    };
+    applyQueue(q, file, load);
   } catch (e) {
     addLog(`Não consegui ler filas/${file}: ${e.message}`, "error");
   }
@@ -257,6 +346,33 @@ $("#queueFile").addEventListener("change", async () => {
     addLog(`Arquivo inválido: ${e.message}`, "error");
   }
   $("#queueFile").value = "";
+});
+// Pasta do computador com fila.json (ou prompts.txt) + imagens
+$("#queueFolder").addEventListener("change", async () => {
+  const files = [...$("#queueFolder").files];
+  $("#queueFolder").value = "";
+  if (!files.length) return;
+  const byName = new Map(files.map((f) => [f.name, f]));
+  const json = files.find((f) => /^fila.*\.json$/i.test(f.name)) || files.find((f) => /\.json$/i.test(f.name));
+  const txt = files.find((f) => /\.txt$/i.test(f.name));
+  const imgs = files.filter((f) => /\.(png|jpe?g|webp)$/i.test(f.name));
+  const load = async (name) => {
+    const f = byName.get(name);
+    if (!f) throw new Error("não encontrada");
+    return blobToDataUrl(f);
+  };
+  try {
+    let q;
+    if (json) q = JSON.parse(await json.text());
+    else if (txt) q = { titulo: txt.name, prompts: (await txt.text()).split(/\r?\n/).map((l) => l.trim()).filter(Boolean) };
+    else return addLog("A pasta não tem fila .json nem prompts .txt.", "error");
+    // Sem lista de imagens no arquivo: todas as imagens da pasta valem para todos os prompts.
+    if (!q.imagens && !q.images && !(q.prompts || []).some((p) => typeof p === "object" && (p.imagens || p.images || p.inicio)))
+      q.imagens = imgs.map((f) => f.name);
+    applyQueue(q, json?.name || txt.name, load);
+  } catch (e) {
+    addLog(`Pasta inválida: ${e.message}`, "error");
+  }
 });
 listQueues();
 $("#version").textContent = "v" + chrome.runtime.getManifest().version;

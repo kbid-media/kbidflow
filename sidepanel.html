@@ -35,9 +35,14 @@
   </div>
   <div class="row small">
     <button id="queueRefresh" class="link">atualizar lista</button>
-    <label class="link filepick">abrir arquivo… <input id="queueFile" type="file" accept=".json,.txt" hidden /></label>
+    <span>
+      <label class="link filepick">abrir arquivo… <input id="queueFile" type="file" accept=".json,.txt" hidden /></label>
+      ·
+      <label class="link filepick">abrir pasta (prompts + imagens)… <input id="queueFolder" type="file" webkitdirectory hidden /></label>
+    </span>
   </div>
   <div id="flowCheck" class="flowcheck hidden"></div>
+  <div id="packInfo" class="flowcheck hidden"></div>
   <label>Prompts (um por linha)</label>
   <textarea id="prompts" rows="9" placeholder="Um homem de camisa azul falando para a câmera…&#10;Close no rosto dele sorrindo…"></textarea>
   <div class="small muted" id="promptCount">0 prompts</div>

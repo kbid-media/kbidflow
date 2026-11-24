@@ -780,74 +780,247 @@
     (tile.querySelector("video") || tile.querySelector(".container") || tile).click();
     const save = await waitFor(() => flowButton(["Salvar frame", "Save frame"], ["add_photo_alternate"]), 15000, 300);
     if (!save) return "o editor do vídeo não abriu";
-    await sleep(800);
-    const skip = flowButton(["Pular para o próximo clipe", "Skip to next clip"], ["skip_next"]);
-    if (skip) {
-      skip.click();
+    const back = () => flowButton(['"Voltar"', "Voltar", "Back"], ["arrow_back"])?.click();
+    // Espera o editor carregar o clipe (a duração deixa de ser 00:00:00) antes de mexer no tempo.
+    const tc = () => ({
+      cur: (document.querySelector(".timecode-value")?.textContent || "").trim(),
+      dur: (document.querySelector(".duration-timecode-value")?.textContent || "").trim(),
+    });
+    const hasTimecode = await waitFor(() => /[1-9]/.test(tc().dur), 20000, 300);
+    await sleep(1500);
+    const atEnd = () => {
+      const t = tc();
+      return t.cur && t.cur === t.dur;
+    };
+    for (let k = 0; k < 5 && !atEnd(); k++) {
+      flowButton(["Pular para o próximo clipe", "Skip to next clip"], ["skip_next"])?.click();
+      if (await waitFor(atEnd, 3000, 200)) break;
       await sleep(1000);
     }
+    if (hasTimecode && !atEnd()) {
+      back();
+      await waitFor(() => findPromptBox(), 15000, 300);
+      return `não consegui levar o vídeo até o fim (${tc().cur} de ${tc().dur})`;
+    }
+    await sleep(1800); // deixa o último quadro ser desenhado antes de salvar
     save.click();
     const ok = await waitFor(() => flowNotices().some((el) => /frame salvo|frame saved/i.test(noticeText(el))), 15000, 300);
     await sleep(600);
-    flowButton(['"Voltar"', "Voltar", "Back"], ["arrow_back"])?.click();
-    await waitFor(() => findStartChip() || filledStartChip(), 15000, 300);
+    back();
+    await waitFor(() => findPromptBox() && !flowButton(["Salvar frame", "Save frame"], ["add_photo_alternate"]), 15000, 300);
     await sleep(800);
     return ok ? null : 'o Flow não confirmou "Frame salvo"';
   }
 
-  async function attachStartFrame(title) {
+  // ---------- seletor de mídia do Flow (Início, + Elementos) ----------
+  const SEARCH_SEL = 'input[aria-label="Pesquisar recursos"], input[aria-label="Search assets"], input.search-input';
+  const paneWith = (sel) => [...document.querySelectorAll(".cdk-overlay-pane")].filter((p) => visible(p) && p.querySelector(sel)).pop() || null;
+  const optText = (b) => (b.innerText || "").replace(/\s+/g, " ").trim();
+  async function closePicker() {
+    const p = paneWith(SEARCH_SEL);
+    if (!p) return;
+    const x = [...p.querySelectorAll("button")].find((b) => /^(Fechar|Close)$/i.test(b.getAttribute("aria-label") || ""));
+    if (x) x.click();
+    else document.querySelector(".cdk-overlay-backdrop")?.click();
+    await waitFor(() => !paneWith(SEARCH_SEL), 3000, 200);
+  }
+  /** abre o seletor com `opener`, busca `query` e devolve a opção que passa em `match` (ou null) */
+  async function searchPicker(opener, query, match) {
+    if (!opener) return { err: "botão para escolher mídia não encontrado" };
+    opener.click();
+    const p = await waitFor(() => paneWith(SEARCH_SEL), 8000, 250);
+    if (!p) return { err: "o seletor de mídia não abriu" };
+    const search = p.querySelector(SEARCH_SEL);
+    search.focus();
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(search, query);
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    const opt = await waitFor(() => [...p.querySelectorAll('button[role="option"]')].find((b) => match(optText(b))), 6000, 300);
+    return { pane: p, opt };
+  }
+  async function pickAsset(opener, query, match, done) {
+    const r = await searchPicker(opener, query, match);
+    if (r.err) return r.err;
+    if (!r.opt) {
+      await closePicker();
+      return `"${query}" não apareceu no seletor do Flow`;
+    }
+    r.opt.click();
+    // Clicar na mídia costuma já incluir e fechar; senão aparece "Incluir no comando".
+    const next = await waitFor(() => done() || r.pane.querySelector("button.detail-add-to-prompt-btn"), 6000, 200);
+    if (next && next.classList?.contains("detail-add-to-prompt-btn")) next.click();
+    if (await waitFor(done, 6000, 300)) return null;
+    await closePicker();
+    return `"${query}" não entrou na caixa`;
+  }
+
+  async function attachStartFrame(title, exactName = null) {
     await clearStartFrame();
     const chip = await waitFor(findStartChip, 8000, 300);
-    if (!chip) return "botão Início não apareceu (o modo escolhido no Flow aceita frame inicial?)";
-    chip.click();
-    const search = await waitFor(() => overlay()?.querySelector('input[aria-label="Pesquisar recursos"], input[type="text"]'), 8000, 250);
-    if (!search) return "o seletor de frame não abriu";
-    search.focus();
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(search, title);
-    search.dispatchEvent(new Event("input", { bubbles: true }));
-    const opt = await waitFor(
-      () =>
-        [...(overlay()?.querySelectorAll('button[role="option"]') || [])].find((b) => {
-          const t = (b.innerText || "").trim();
-          return /frame/i.test(t) && t.endsWith(title);
-        }),
-      8000,
-      300,
-    );
-    if (!opt) {
-      flowButton(["Fechar", "Close"], ["close"])?.click();
-      return `"Frame salvo de ${title}" não apareceu no seletor`;
+    if (!chip) return "botão Início não apareceu";
+    const match = exactName ? (t) => t.startsWith(exactName) : (t) => /frame/i.test(t) && t.includes(title);
+    return pickAsset(chip, exactName || title, match, filledStartChip);
+  }
+
+  // ---------- modo da caixa: Frames (Início/Fim) ou Elementos (imagens de referência) ----------
+  const addElementButton = () => flowButton(["Adicionar elementos", "Add elements", "Add ingredients"], []);
+  const elementChips = () => [...document.querySelectorAll("button.chip-container")].filter((b) => visible(b) && b.querySelector("img"));
+  const inFramesMode = () => !!(findStartChip() || flowButton(["Trocar o primeiro e o último frame", "Swap first and last frame"], ["swap_horiz"]));
+  async function setMode(mode) {
+    if (mode === "frames" ? inFramesMode() : !!addElementButton()) return null;
+    const trig = document.querySelector("button.settings-trigger-button") || flowButton(["Gatilho de configurações", "Settings"], []);
+    if (!trig) return "menu de configurações da caixa não encontrado";
+    trig.click();
+    const p = await waitFor(() => paneWith('[role="radio"]'), 5000, 200);
+    if (!p) return "o menu de configurações não abriu";
+    const names = mode === "frames" ? ["Frames"] : ["Elementos", "Elements", "Ingredients", "Ingredientes"];
+    const radio = [...p.querySelectorAll('[role="radio"]')].find((r) => names.some((n) => (r.innerText || "").includes(n)));
+    if (radio) radio.click();
+    await sleep(600);
+    document.querySelector(".cdk-overlay-backdrop")?.click();
+    const ok = await waitFor(() => (mode === "frames" ? inFramesMode() : !!addElementButton()), 4000, 200);
+    return ok ? null : `não consegui pôr a caixa no modo ${mode === "frames" ? "Frames" : "Elementos"}`;
+  }
+  async function clearElements() {
+    for (let k = 0; k < 12; k++) {
+      const chip = elementChips()[0];
+      if (!chip) return;
+      const x = [...chip.querySelectorAll("*")].find((e) => !e.children.length && (e.textContent || "").trim() === "cancel");
+      (x || chip).dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await sleep(400);
     }
-    opt.click();
-    // Clicar na imagem às vezes já inclui e fecha; senão, aparece "Incluir no comando".
-    const next = await waitFor(() => filledStartChip() || overlay()?.querySelector("button.detail-add-to-prompt-btn"), 6000, 200);
-    if (next && next.classList?.contains("detail-add-to-prompt-btn")) next.click();
-    return (await waitFor(filledStartChip, 6000, 300)) ? null : "o frame não entrou na caixa";
+  }
+  async function attachElement(query, match) {
+    const n = elementChips().length;
+    return pickAsset(addElementButton(), query, match, () => elementChips().length > n);
+  }
+
+  // ---------- subir as imagens do pacote para o projeto (soltando o arquivo na caixa do Flow) ----------
+  async function assetExists(name) {
+    const opener = addElementButton() || findStartChip();
+    if (!opener) return false;
+    const r = await searchPicker(opener, name, (t) => t.startsWith(name));
+    await closePicker();
+    return !!r.opt;
+  }
+  function composerRoot() {
+    const box = findPromptBox();
+    let n = box;
+    for (let i = 0; i < 10 && n?.parentElement; i++) {
+      n = n.parentElement;
+      if (findSendButton(box) && n.contains(findSendButton(box))) return n;
+    }
+    return box?.parentElement || document.body;
+  }
+  async function uploadAsset(name, dataUrl) {
+    const blob = await (await fetch(dataUrl)).blob();
+    const dt = new DataTransfer();
+    dt.items.add(new File([blob], name, { type: blob.type || "image/png" }));
+    const el = composerRoot();
+    const r = el.getBoundingClientRect();
+    const o = { bubbles: true, cancelable: true, composed: true, clientX: r.left + r.width / 2, clientY: r.top + 20, dataTransfer: dt };
+    for (const t of ["dragenter", "dragover", "drop"]) el.dispatchEvent(new DragEvent(t, o));
+  }
+  async function ensureAssets(assets) {
+    const names = Object.keys(assets || {});
+    for (let i = 0; i < names.length && !S.stop; i++) {
+      const name = names[i];
+      status(`Imagens: conferindo ${i + 1}/${names.length} (${name})`);
+      if (await assetExists(name)) {
+        log(`🖼 ${name} já está no projeto`);
+        continue;
+      }
+      status(`Imagens: subindo ${name}`);
+      await uploadAsset(name, assets[name]);
+      let ok = false;
+      for (let k = 0; k < 15 && !ok && !S.stop; k++) {
+        await sleep(2500);
+        ok = await assetExists(name);
+      }
+      if (ok) log(`⬆️ ${name} enviada ao projeto`, "success");
+      else return `a imagem ${name} não apareceu no projeto depois do envio`;
+    }
+    return null;
+  }
+
+  /** prepara a caixa para um prompt: imagens de referência e/ou frame inicial (último frame do anterior) */
+  async function prepareComposer(item, label, chainTitle) {
+    const refs = [...new Set([...(S.settings.globalImages || []), ...(item.images || [])])];
+    if (refs.length) {
+      let e = await setMode("elements");
+      if (e) return e;
+      await clearElements();
+      for (const ref of refs) {
+        e = await attachElement(ref, (t) => t.startsWith(ref));
+        if (e) return e;
+      }
+      if (chainTitle) {
+        e = await saveLastFrame(chainTitle);
+        if (!e) e = await attachElement(chainTitle, (t) => /frame/i.test(t) && t.includes(chainTitle));
+        if (e) log(`⚠️ ${label}: último frame não entrou (${e}); segue só com as imagens.`, "warn");
+        else log(`🔗 ${label}: último frame de "${chainTitle}" entrou como elemento (o Flow não junta Início com Elementos).`);
+      }
+      log(`🖼 ${label}: ${refs.length} imagem(ns) de referência`, "success");
+      return null;
+    }
+    if (item.inicio || chainTitle) {
+      let e = await setMode("frames");
+      if (e && item.inicio) return e;
+      if (e) {
+        log(`⚠️ ${label}: ${e}. Segue sem frame inicial.`, "warn");
+        return null;
+      }
+      if (chainTitle) {
+        e = await saveLastFrame(chainTitle);
+        if (!e) e = await attachStartFrame(chainTitle);
+        if (e) log(`⚠️ ${label}: ${e}. Segue sem frame inicial.`, "warn");
+        else log(`🔗 ${label} começa do último frame de "${chainTitle}"`, "success");
+      } else {
+        e = await attachStartFrame(null, item.inicio);
+        if (e) return e;
+        log(`🖼 ${label}: começa do frame ${item.inicio}`, "success");
+      }
+    }
+    return null;
   }
 
   async function startGenerate() {
-    const prompts = (S.settings.prompts || []).map((p) => p.trim()).filter(Boolean);
+    // items: [{text, images:[nomes], inicio:nome}] (pacote) ou só os textos do painel
+    const items = (S.settings.items?.length ? S.settings.items : (S.settings.prompts || []).map((t) => ({ text: t })))
+      .map((it) => ({ ...it, text: String(it.text || "").trim() }))
+      .filter((it) => it.text);
+    const prompts = items.map((it) => it.text);
     if (!prompts.length) return log("Nenhum prompt na fila.", "error");
     const chain = !!S.settings.chainFrames;
-    const maxParallel = chain ? 1 : Math.max(1, Number(S.settings.maxParallel) || 2);
+    const usesImages = !!(S.settings.globalImages?.length || items.some((it) => it.images?.length || it.inicio));
+    const maxParallel = chain || usesImages ? 1 : Math.max(1, Number(S.settings.maxParallel) || 2);
     const gap = Math.max(0, Number(S.settings.genGapSec) || 0) * 1000;
     const sent = [];
     const preKeys = new Set(tileKeys().values()); // o que já existia antes desta fila
     let lastTitle = null;
     S.total = prompts.length;
     if (chain) log("🔗 Modo contínuo: um vídeo por vez, cada um começa do último frame do anterior.");
+    if (S.settings.assets && Object.keys(S.settings.assets).length) {
+      const names = Object.keys(S.settings.assets);
+      log(`🖼 Pacote com ${names.length} imagem(ns): conferindo o projeto…`);
+      await setMode("elements");
+      const e = await ensureAssets(S.settings.assets);
+      if (e) {
+        log(`❌ ${e}. Parei antes de gerar.`, "error");
+        return;
+      }
+    }
     for (let i = 0; i < prompts.length && !S.stop; i++) {
       const label = `Prompt ${i + 1}/${prompts.length}`;
       await waitUntilVisible();
       status(`${label}: aguardando vaga (${getGenerating().length}/${maxParallel} gerando)`);
       await waitFor(() => getGenerating().length < maxParallel, 60 * 60000, 2000);
       if (S.stop) break;
-      if (chain && lastTitle) {
-        status(`${label}: pegando o último frame de "${lastTitle}"`);
-        let e = await saveLastFrame(lastTitle);
-        if (!e) e = await attachStartFrame(lastTitle);
-        if (e) log(`⚠️ ${label}: ${e}. Segue sem frame inicial.`, "warn");
-        else log(`🔗 ${label} começa do último frame de "${lastTitle}"`, "success");
+      status(`${label}: preparando a caixa`);
+      const prep = await prepareComposer(items[i], label, chain ? lastTitle : null);
+      if (prep) {
+        S.failed++;
+        log(`❌ ${label}: ${prep}. Prompt pulado.`, "error");
+        continue;
       }
       const before = titleCounts();
       status(`${label}: enviando`);
@@ -864,7 +1037,8 @@
         S.done++;
         sent.push({ idx: i + 1, prompt: prompts[i] });
         log(`🎬 ${label} enviado: "${prompts[i].slice(0, 60)}"`, "success");
-        if (chain && i < prompts.length - 1) {
+        if ((chain || usesImages) && i < prompts.length - 1) {
+          // um por vez: espera este vídeo antes de mexer na caixa para o próximo
           const r = await waitNewVideo(before, label);
           lastTitle = r.title || null;
           if (r.title) log(`✅ ${label} pronto: "${r.title}"`, "success");
@@ -1117,7 +1291,7 @@
   });
 
   // Para teste manual no console da aba (não muda nada sozinho).
-  window.__kbidflowDebug = { saveLastFrame, attachStartFrame, clearStartFrame, titleCounts, newVideoTiles };
+  window.__kbidflowDebug = { saveLastFrame, attachStartFrame, clearStartFrame, titleCounts, newVideoTiles, setMode, attachElement, clearElements, ensureAssets, prepareComposer };
 
   log("pronto nesta aba do Flow");
 })();
