@@ -232,6 +232,7 @@ function normalizeQueue(q) {
           nome: p.nome || p.name || null,
           duracao: p.duracao || p.duration || null,
           continuar: !!(p.continuar || p.continue),
+          continuarDe: p.continuar_de || null,
         },
   );
   items.forEach((it) => (it.text = String(it.text).replace(/\s*\r?\n\s*/g, " ").trim()));
@@ -243,7 +244,7 @@ function showPack() {
   const names = new Set(pack.globalImages);
   pack.items.forEach((it) => [...it.images, it.inicio].filter(Boolean).forEach((n) => names.add(n)));
   const per = pack.items.filter((it) => it.images.length || it.inicio).length;
-  const cont = pack.items.filter((it) => it.continuar).length;
+  const cont = pack.items.filter((it) => it.continuar || it.continuarDe).length;
   const durs = pack.items.filter((it) => it.duracao).length;
   const nomes = pack.items.map((it) => it.nome).filter(Boolean);
   box.innerHTML = "";
@@ -297,7 +298,7 @@ function applyQueue(q, source, load = null) {
   const prompts = norm.items.map((it) => it.text);
   $("#prompts").value = prompts.join("\n");
   const hasImages = norm.globalImages.length || norm.items.some((it) => it.images.length || it.inicio);
-  const hasTakes = norm.items.some((it) => it.nome || it.duracao || it.continuar);
+  const hasTakes = norm.items.some((it) => it.nome || it.duracao || it.continuar || it.continuarDe);
   if (hasImages && !load) {
     addLog("Esta fila cita imagens, mas foi aberta como arquivo solto. Use “abrir pasta…” com a pasta do pacote.", "warn");
   }
@@ -369,6 +370,24 @@ $("#queueFile").addEventListener("change", async () => {
   }
   $("#queueFile").value = "";
 });
+// Lista do que já existe no projeto do Flow, pronta para colar na conversa com o Claude
+$("#copyTitles").addEventListener("click", async () => {
+  addLog("Lendo a galeria do projeto (rola até o fim)…");
+  try {
+    const r = await cmd("listTitles");
+    if (!r?.ok) return addLog(r?.error || "Não consegui ler o projeto", "error");
+    const txt =
+      `Títulos no projeto do Flow ${r.project} (KbidFlow):\n` +
+      `Vídeos prontos (${r.videos.length}): ${r.videos.join(", ") || "nenhum"}\n` +
+      (r.generating.length ? `Gerando agora (${r.generating.length}): ${r.generating.join(", ")}\n` : "") +
+      `Imagens (${r.images.length}): ${r.images.join(", ") || "nenhuma"}`;
+    await navigator.clipboard.writeText(txt);
+    addLog(`📋 Copiado: ${r.videos.length} vídeos e ${r.images.length} imagens. Cole na conversa com o Claude.`, "success");
+  } catch (e) {
+    addLog(e.message, "error");
+  }
+});
+
 // Pasta do computador com fila.json (ou prompts.txt) + imagens
 $("#queueFolder").addEventListener("change", async () => {
   const files = [...$("#queueFolder").files];

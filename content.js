@@ -479,6 +479,32 @@
     return document.scrollingElement || document.documentElement;
   }
 
+  // Rola a galeria inteira e devolve os títulos dos vídeos e imagens (para colar na conversa com o Claude).
+  async function listProjectTitles() {
+    const videos = new Set();
+    const images = new Set();
+    const generating = new Set();
+    const sc = scroller();
+    const start = sc.scrollTop;
+    sc.scrollTo?.({ top: 0, behavior: "instant" });
+    await sleep(600);
+    for (let i = 0; i < 80; i++) {
+      for (const t of allTiles()) {
+        const n = tileName(t);
+        if (kindOf(t) === "image") images.add(n);
+        else if (isGenerating(t)) generating.add(n);
+        else if (isReady(t)) videos.add(n);
+      }
+      const before = sc.scrollTop;
+      sc.scrollBy?.({ top: sc.clientHeight * 0.8 });
+      await sleep(700);
+      if (sc.scrollTop === before) break;
+    }
+    sc.scrollTo?.({ top: start, behavior: "instant" });
+    const sort = (s) => [...s].sort((a, b) => a.localeCompare(b, "pt", { numeric: true }));
+    return { videos: sort(videos), images: sort(images), generating: sort(generating), project: location.pathname.split("/").pop() };
+  }
+
   // ---------- percorre os tiles e baixa um por vez ----------
   // pickTarget(tile, key) → null (pular) ou { fileName } ; ordem: a do grid do Flow (mais novo primeiro)
   async function runDownloads(pickTarget, expected) {
@@ -1008,7 +1034,7 @@
     const chain = !!S.settings.chainFrames;
     const usesImages = !!(S.settings.globalImages?.length || items.some((it) => it.images?.length || it.inicio));
     // Ajustes por take (imagens, duração, continuar do anterior) mexem na caixa: um vídeo por vez.
-    const perTake = usesImages || items.some((it) => it.continuar || it.duracao);
+    const perTake = usesImages || items.some((it) => it.continuar || it.continuarDe || it.duracao);
     const maxParallel = chain || perTake ? 1 : Math.max(1, Number(S.settings.maxParallel) || 2);
     const titleToName = new Map(); // título do vídeo no Flow -> nome do take (para o arquivo)
     const gap = Math.max(0, Number(S.settings.genGapSec) || 0) * 1000;
@@ -1036,7 +1062,9 @@
       status(`${label}: preparando a caixa`);
       if (items[i].nome) log(`▶ ${label}: ${items[i].nome}`);
       if (items[i].continuar && !lastTitle) log(`⚠️ ${label}: devia continuar do vídeo anterior, mas ele não ficou pronto. Segue sem frame.`, "warn");
-      const prep = await prepareComposer(items[i], label, chain || items[i].continuar ? lastTitle : null);
+      // continuar_de: começa do último quadro de um vídeo que já está no Flow (ex.: o take "a" feito antes)
+      const fonte = items[i].continuarDe || (chain || items[i].continuar ? lastTitle : null);
+      const prep = await prepareComposer(items[i], label, fonte);
       if (prep) {
         S.failed++;
         log(`❌ ${label}: ${prep}. Prompt pulado.`, "error");
@@ -1300,6 +1328,8 @@
           S.picked.clear();
           paintPicks();
           return { ok: true };
+        case "listTitles":
+          return { ok: true, ...(await listProjectTitles()) };
         case "generate":
           return run("generate", msg.settings);
         case "download":

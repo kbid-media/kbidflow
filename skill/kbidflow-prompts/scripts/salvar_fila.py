@@ -97,6 +97,34 @@ def conferir(fila: dict) -> list[str]:
     return avisos
 
 
+def copiar_imagem(origem: Path, destino: Path) -> None:
+    """Copia a imagem; PNG que virou .jpg é convertido (Pillow, ou o PowerShell do Windows se não houver Pillow)."""
+    if not (origem.suffix.lower() == ".png" and destino.suffix == ".jpg"):
+        shutil.copy2(origem, destino)
+        return
+    try:
+        from PIL import Image
+
+        Image.open(origem).convert("RGB").save(destino, "JPEG", quality=95)
+        return
+    except ImportError:
+        pass
+    import subprocess
+
+    ps = (
+        "Add-Type -AssemblyName System.Drawing;"
+        f"$i=[System.Drawing.Image]::FromFile('{origem}');"
+        "$c=[System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders()|?{$_.MimeType -eq 'image/jpeg'};"
+        "$p=New-Object System.Drawing.Imaging.EncoderParameters 1;"
+        "$p.Param[0]=New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality,[long]95);"
+        f"$i.Save('{destino}',$c,$p);$i.Dispose()"
+    )
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True)
+    if r.returncode != 0 or not destino.exists():
+        shutil.copy2(origem, destino.with_suffix(".png"))
+        raise SystemExit(f"ERRO: não consegui converter {origem.name} para JPG. Instale o Pillow: pip install pillow")
+
+
 def coletar_imagens(fila: dict, base: Path, prefixo: str) -> tuple[dict[str, Path], list[str]]:
     """Troca os caminhos das imagens por nomes do pacote. Devolve {nome_no_pacote: arquivo_original} e avisos."""
     origem: dict[str, Path] = {}
@@ -142,6 +170,8 @@ def coletar_imagens(fila: dict, base: Path, prefixo: str) -> tuple[dict[str, Pat
             item["duracao"] = int(re.search(r"\d+", str(p["duracao"])).group())
         if p.get("continuar"):
             item["continuar"] = True
+        if p.get("continuar_de"):
+            item["continuar_de"] = str(p["continuar_de"])
         novos.append(item if len(item) > 1 else item["texto"])
     fila["prompts"] = novos
     if not fila["imagens"]:
@@ -172,6 +202,7 @@ def main() -> None:
     origem, avisos_img = coletar_imagens(fila, args.rascunho.resolve().parent, slug(fila["titulo"])[:20])
     avisos += avisos_img
 
+    pastas_prontas: list[Path] = []
     for pasta in pastas:
         pasta.mkdir(parents=True, exist_ok=True)
         ident = f"{hoje}_{slug(fila['titulo'])}"
@@ -180,19 +211,18 @@ def main() -> None:
             ident = f"{hoje}_{slug(fila['titulo'])}-v{n}"
             n += 1
         saida = dict(fila)
+        # Pasta autocontida: imagens + fila.json. Dá para zipar e mandar; quem recebe usa "abrir pasta" no painel.
+        destino_img = pasta / ident
+        destino_img.mkdir(parents=True, exist_ok=True)
+        for nome, arquivo in origem.items():
+            copiar_imagem(arquivo, destino_img / nome)
         if origem:
-            destino_img = pasta / ident
-            destino_img.mkdir(parents=True, exist_ok=True)
-            for nome, arquivo in origem.items():
-                if arquivo.suffix.lower() == ".png" and nome.endswith(".jpg"):
-                    from PIL import Image
-
-                    Image.open(arquivo).convert("RGB").save(destino_img / nome, "JPEG", quality=95)
-                else:
-                    shutil.copy2(arquivo, destino_img / nome)
             saida["pasta"] = ident
         destino = pasta / f"{ident}.json"
         destino.write_text(json.dumps(saida, ensure_ascii=False, indent=2), encoding="utf-8")
+        avulsa = {k2: v for k2, v in saida.items() if k2 != "pasta"}
+        (destino_img / "fila.json").write_text(json.dumps(avulsa, ensure_ascii=False, indent=2), encoding="utf-8")
+        pastas_prontas.append(destino_img)
 
         idx_path = pasta / "index.json"
         idx = json.loads(idx_path.read_text(encoding="utf-8")) if idx_path.exists() else {"filas": []}
@@ -204,6 +234,7 @@ def main() -> None:
         print(f"OK: {destino}" + (f"  (+{len(origem)} imagens em {destino.parent / ident})" if origem else ""))
 
     print(f"{len(fila['prompts'])} prompts · pasta de download: Downloads/{k['folder']}")
+    print(f"PARA MANDAR A ALGUÉM: zipe a pasta {pastas_prontas[0]} (quem recebe descompacta e usa 'abrir pasta' no painel)")
     for a in avisos:
         print("AVISO:", a)
     sys.exit(0)

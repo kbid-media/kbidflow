@@ -1,104 +1,110 @@
 ---
 name: kbidflow-prompts
-description: Escreve todos os prompts de uma série de vídeos para o Google Flow (Veo 3.1) a partir de um briefing e salva a fila pronta para a extensão KbidFlow, que gera tudo em sequência e baixa em 1080p sozinha. Use quando pedirem "gera os prompts dos vídeos", "monta a fila do Flow", "quero N vídeos de X no Flow", "prompts para a KbidFlow", "lote de takes no Flow" ou uma série de vídeos de texto para vídeo no Flow.
+description: Monta a fila (prompts + imagens) para a extensão KbidFlow gerar vídeos no Google Flow sozinha e baixar em 1080p. Dois caminhos - a partir de um roteiro de takes que já existe (pega só os takes que faltam no projeto) ou do zero, a partir de uma ideia. Use quando pedirem "monta a fila do Flow", "gera os prompts dos vídeos", "faz o pacote dos takes que faltam", "quero N vídeos de X no Flow", "prompts para a KbidFlow" ou colarem a lista "Títulos no projeto do Flow".
 ---
 
-# KbidFlow Prompts: do briefing à fila pronta no Flow
+# KbidFlow Prompts: a fila pronta para o Flow
 
-A extensão KbidFlow (`D:\IA\KbidFlow`) digita cada prompt na caixa do Flow, respeita o limite de gerações ao mesmo tempo e, no fim, baixa os vídeos novos em 1080p, numerados na ordem da fila.
-Esta skill escreve esses prompts e salva a fila em `D:\IA\KbidFlow\filas\`. O painel da extensão lista essa pasta e carrega com um clique.
+A KbidFlow (extensão do Chrome, https://github.com/kbideditor1/kbidflow) faz no Flow, sozinha: sobe as imagens, põe frame inicial ou imagens de referência, troca a duração, envia cada prompt, espera, e baixa em 1080p. Esta skill prepara a **fila** que ela usa.
 
-A extensão envia texto + imagens (de referência e frame inicial) e troca sozinha a caixa entre Elementos e Frames. Modelo, proporção, duração e quantidade por prompt ficam como estiverem na caixa do Flow: diga ao usuário como deixar.
-Take falado do Davi ou do Rodrigo com voz clonada continua sendo da `ev-avatar-flow`; para um lote deles, a fila pode usar o character sheet da ficha como imagem em todos os prompts.
+## Jeito de conversar (vale para tudo)
 
-## Etapa 1: briefing (até 6 perguntas, só o que faltar)
+Quem usa quer começar rápido e ler pouco:
+- **Uma pergunta por vez**, com opções numeradas para responder com um número. Nada de lista de 6 perguntas.
+- Frases curtas. Sem termos técnicos (nada de "JSON", "script", "parâmetro" para a pessoa).
+- Sempre termine dizendo **o próximo clique**, numa linha só.
+- Mostre progresso curto: "✅ roteiro lido · ✅ 7 takes faltando · ⏳ montando a fila".
+- Se algo falhar, diga o que fazer em uma frase, não o erro inteiro.
 
-1. **Tema e objetivo**: o que a série mostra e para onde vai (Reels, anúncio, aula, B-roll).
-2. **Quantos vídeos** e se cada um é uma cena diferente ou variações da mesma.
-3. **Personagem**: quem aparece. Se for o mesmo em todos, peça ou monte uma descrição fixa (idade, rosto, cabelo, barba, óculos, roupa). Para Davi/Rodrigo, use a ficha em `D:\IA\Skills\ev-avatar-flow\personagens\<id>\ficha.json`.
-4. **Formato**: 9:16 ou 16:9; duração 4, 6 ou 8 s; modelo (Veo 3.1 Fast é o padrão; Quality para hero shots).
-5. **Fala**: com fala (qual texto, em português do Brasil?) ou só imagem com som ambiente.
-6. **Imagens de referência** (se o usuário usa imagens + prompt): quais arquivos entram em **todos** os vídeos (ex.: character sheet) e quais só em vídeos específicos (cenário, produto). Peça os caminhos no computador. Um vídeo pode também ter um **frame inicial** próprio.
+## Primeiro: qual caminho?
 
-Se o usuário já mandou roteiro ou lista de cenas, não pergunte de novo: use o que veio.
+Pergunte só isto (a não ser que já esteja claro):
 
-## Etapa 2: escrever os prompts
+> Vamos montar a fila. Você já tem um roteiro com os takes, ou vamos criar do zero?
+> 1. Tenho um roteiro (arquivo com os takes)
+> 2. Do zero, a partir de uma ideia
 
-Um prompt por vídeo, **numa linha só** (a fila separa por linha). Em português. Ordem fixa dos blocos:
+## Caminho 1: do roteiro (só o que falta)
 
-1. **Plano e câmera**: enquadramento + formato + movimento. Ex.: "Plano médio vertical 9:16, câmera fixa na altura do peito com aproximação lenta e suave."
-2. **Personagem**: o bloco fixo do briefing, **copiado igual em todos os prompts**, palavra por palavra. É isso que mantém a mesma pessoa entre vídeos.
-3. **Cenário e luz**: lugar, hora do dia, luz (ex.: "escritório com estante de livros ao fundo, luz quente de fim de tarde vinda da janela").
-4. **Ação**: o que acontece nos segundos do take, com gesto e expressão. Uma ação principal por take.
-5. **Fala** (se houver): `Ele diz em português brasileiro, com calma e naturalidade: "…"`. Máximo de palavras: 4 s → 10, 6 s → 15, 8 s → 20. Se passar, divida em dois prompts seguidos.
-6. **Regras de qualidade**: "Lábios sincronizados com a fala, piscadas naturais, mãos com cinco dedos e sem deformação, rosto de frente ou levemente diagonal, nunca de perfil. Plano único sem cortes, sem legenda, sem texto na tela, sem música."
-   Sem fala, troque o início por "Sem fala, apenas som ambiente de …".
+O roteiro tem, para cada take, este formato (é o que a `ev-avatar-flow` e os roteiros da Kbid usam):
 
-Variar entre os prompts: ação, enquadramento (close, médio, americano), ângulo e movimento de câmera. Ritmo do usuário: algo entra ou a câmera muda de foco a cada 2-3 s.
-Não variar: personagem, roupa, cenário (quando é a mesma série), luz e regras.
-Evite marcas, logos, texto escrito na cena e pessoas famosas reais.
+~~~
+## v4_t03 · 8 s
+Imagem inicial: `v4_t03_frame_v1.png`        (ou `último quadro do take v4_t04a`, ou sem a linha)
+```
+o prompt do take
+```
+~~~
 
-Mostre os prompts ao usuário numa caixa de código, numerados, antes de salvar. Ajuste o que ele pedir.
+Passos:
+1. Peça o arquivo do roteiro (a pessoa pode arrastar o arquivo para a conversa ou colar o caminho). Os frames ficam numa pasta `frames` ao lado; se não, pergunte onde estão.
+2. Peça a lista do que já existe no Flow:
+   > No painel da KbidFlow (aba **Gerar**), clique em **📋 copiar títulos do projeto** e cole aqui.
+   Se a pessoa não tiver, siga sem: entram todos os takes.
+3. Salve o texto colado num arquivo temporário e rode primeiro a simulação:
+   ```bash
+   python <skill>/scripts/roteiro_para_fila.py "ROTEIRO.md" --titulos "<tmp>/titulos.txt" --simular
+   ```
+   Mostre a tabela que sai (take · duração · de onde começa) e pergunte: "Monto com esses? 1. Sim 2. Tirar algum".
+4. Rode sem `--simular` (com `--so v4_t03,v4_t07` se a pessoa escolheu alguns). O script copia os frames, grava a fila e diz a pasta para mandar a alguém.
 
-## Etapa 3: salvar a fila
+Regras que o script já aplica: take "b" que começa do último quadro do "a" vira **continuar** (se o "a" vem antes na fila) ou **continuar_de** (se o "a" já está no Flow). Se o "a" não existe em lugar nenhum, ele para e avisa: inclua o "a".
 
-Monte o rascunho em `<scratchpad>/fila.json`:
+## Caminho 2: do zero
+
+Uma pergunta por vez, com opções:
+1. **O que mostra e para onde vai** (Reels, anúncio, aula, B-roll).
+2. **Quantos vídeos** (sugira 3 a 6).
+3. **Quem aparece**: uma pessoa com fotos de referência? Peça as imagens (arrastar para a conversa ou caminho). Imagens de rosto/corpo entram em todos os vídeos.
+4. **Formato**: 1. Vertical 9:16 · 2. Horizontal 16:9. **Duração**: 4, 6, 8 ou 10 s.
+5. **Fala**: 1. Com fala (qual texto?) · 2. Sem fala, só som ambiente.
+
+Escreva um prompt por vídeo, em português, nesta ordem:
+1. **Plano e câmera**: "Plano médio vertical 9:16, câmera fixa na altura do peito com aproximação lenta e suave."
+2. **Pessoa**: com imagens de referência, "o homem das imagens de referência" + roupa (igual em todos). Sem imagens, uma descrição fixa copiada igual em todos.
+3. **Cenário e luz.**
+4. **Ação**: uma ação principal, com gesto e expressão.
+5. **Fala**: `Ele diz em português brasileiro, com calma e naturalidade: "…"`. Máximo: 4 s → 10 palavras, 6 s → 15, 8 s → 20, 10 s → 25.
+6. **Regras**: "Lábios sincronizados com a fala, piscadas naturais, mãos com cinco dedos e sem deformação, rosto de frente ou levemente diagonal, nunca de perfil. Plano único sem cortes, sem legenda, sem texto na tela, sem música." (Sem fala: "Sem fala, apenas som ambiente de …".)
+
+Varie ação, enquadramento e câmera; não varie pessoa, roupa, luz e regras. Nada de marcas, logos, texto na cena ou famosos.
+
+Mostre os prompts numerados e pergunte: "1. Pode montar · 2. Quero mudar algo".
+
+Monte o rascunho em `<tmp>/fila.json` e salve:
 
 ```json
 {
-  "titulo": "Nome curto da série",
-  "flow": {
-    "modelo": "Veo 3.1 - Fast",
-    "modo": "Texto para vídeo",
-    "proporcao": "9:16",
-    "duracao": "8s",
-    "por_prompt": 1,
-    "observacoes": "Sem imagem de referência anexada na caixa do Flow."
-  },
-  "kbidflow": {
-    "quality": "1080p",
-    "folder": "KbidFlow/nome-da-serie",
-    "prefix": "",
-    "startNumber": 1,
-    "maxParallel": 2,
-    "chainFrames": false,
-    "thenDownload": true
-  },
-  "imagens": ["D:/caminho/sheet_rodrigo.jpg"],
+  "titulo": "Nome curto",
+  "flow": {"modo": "Vídeo", "proporcao": "9:16", "duracao": "8s", "por_prompt": 1, "observacoes": "Deixe Vídeo, 9:16 e x1."},
+  "kbidflow": {"quality": "1080p", "folder": "KbidFlow/nome-curto", "maxParallel": 1, "thenDownload": true},
+  "imagens": ["C:/caminho/rosto.jpg"],
   "prompts": [
-    "prompt 1 numa linha",
-    {"texto": "prompt 2 numa linha", "imagens": ["D:/caminho/escritorio.jpg"]},
-    {"texto": "prompt 3 numa linha", "inicio": "D:/caminho/frame_inicial.png"}
+    {"nome": "take01", "texto": "prompt 1 numa linha", "duracao": 8},
+    {"nome": "take02", "texto": "prompt 2", "duracao": 6, "imagens": ["C:/caminho/cenario.jpg"]},
+    {"nome": "take03", "texto": "prompt 3", "duracao": 8, "continuar": true}
   ]
 }
 ```
 
-**Ajustes por take** (dentro do objeto do prompt): `"nome": "v4_t03"` (o arquivo baixado leva esse nome), `"duracao": 8` (4, 6, 8 ou 10; a KbidFlow troca no menu do Flow antes de enviar) e `"continuar": true` (começa do último quadro do take anterior da fila, para os takes "b"). Para uma série que já tem roteiro e frames (ex.: `prompts_flow_v2.md` com "Imagem inicial"), monte um prompt por take com `nome`, `duracao`, `inicio` (o frame) ou `continuar`.
-
-**Imagens (pacote):** `imagens` no topo entram em todos os prompts; `imagens` dentro de um prompt só naquele; `inicio` é o frame inicial daquele vídeo. Sem imagens, use só textos e apague as chaves. O script copia os arquivos para dentro da fila (nome = `<fila>_<arquivo>`, que vira o nome da mídia no Flow). Na hora de gerar, a KbidFlow sobe o que faltar no projeto (soltando o arquivo na caixa), troca a caixa sozinha para **Elementos** (imagens) ou **Frames** (início/último frame) e faz um vídeo por vez.
-- O Flow não junta frame inicial com elementos no mesmo vídeo. Com imagens + `chainFrames`, o último frame entra como mais um elemento. Com imagens + `inicio`, vale o modo Elementos e o `inicio` é ignorado; avise o usuário e prefira um ou outro.
-- Escreva o prompt sabendo que as imagens estão lá: "o homem da imagem de referência…", sem redescrever o rosto em detalhe.
-
-Depois rode:
-
 ```bash
-python D:/IA/Skills/kbidflow-prompts/scripts/salvar_fila.py "<scratchpad>/fila.json"
+python <skill>/scripts/salvar_fila.py "<tmp>/fila.json"
 ```
 
-O script põe cada prompt numa linha e grava `filas\<data>_<slug>.json` + `filas/index.json` em toda KbidFlow instalada na máquina (`D:\IA\KbidFlow` e/ou `%LOCALAPPDATA%\KbidFlow\extensao`, a pasta do instalador). Também avisa sobre fala longa demais, prompt curto ou repetido. Corrija os avisos e salve de novo (a versão nova vira `-v2`; não apague a anterior).
+Campos de cada prompt: `nome` (nome do arquivo baixado), `duracao` (4/6/8/10), `inicio` (frame inicial), `imagens` (referências só daquele vídeo), `continuar` (começa do último quadro do vídeo anterior da fila), `continuar_de` (do último quadro de um vídeo que já está no Flow, pelo título). `imagens` no topo entram em todos.
 
-`maxParallel`: 2 é o padrão seguro. 3 só se o usuário pedir pressa; 1 para Quality ou fila grande.
+O Flow não junta frame inicial com imagens de referência no mesmo vídeo: com os dois, valem as imagens (e o último frame entra como mais uma imagem). Avise e prefira um ou outro.
 
-`chainFrames: true` (**continuar do último frame**): para uma cena contínua (plano-sequência, uma fala longa dividida em takes, a mesma ação seguindo). A KbidFlow gera um vídeo por vez; antes de cada prompt, salva o último quadro do vídeo anterior ("Salvar frame" do Flow) e o põe no **Início** da caixa. Nesse modo:
-- escreva cada prompt como **continuação** do anterior: comece pela posição em que o take anterior terminou ("Continuando do mesmo plano, ele …") e não mude cenário, roupa nem luz;
-- não descreva entrada em cena nem corte: o vídeo já começa naquele quadro;
-- em `flow.observacoes`, peça para deixar a caixa no modo de vídeo com frames (Início/Fim visíveis) e, se quiser, já escolher o frame do primeiro vídeo no Início;
-- o tempo total é maior (um por vez), então avise.
+## No fim (curto, sempre igual)
 
-## Etapa 4: entregar (curto, no máximo 5 itens)
+```
+✅ Fila pronta: <nome> (<N> vídeos)
+1. No Flow: deixe Vídeo · <proporção> · x1
+2. Painel da KbidFlow › Gerar › atualizar lista › escolha "<nome>" › Carregar
+3. Clique em Gerar fila e deixe a aba do Flow na frente
+Os vídeos caem em Downloads\<pasta>
+```
 
-- Caminho completo da fila salva, como link.
-- O que deixar na caixa do Flow: modelo · modo · proporção · duração · quantidade por prompt.
-- No painel da KbidFlow: aba **Gerar** › **atualizar lista** › escolher a fila › **Carregar** › **Gerar fila**.
-- Onde os vídeos vão cair: `Downloads\<folder>\001 - …mp4`.
-- Créditos: estimativa = prompts × vídeos por prompt × custo do modelo no plano do usuário. Avise antes se a fila for grande.
+Se a fila foi feita para **outra pessoa** gerar: diga para zipar a pasta que o script mostrou ("PARA MANDAR A ALGUÉM") e que quem recebe usa **abrir pasta** no painel.
+
+Créditos: avise antes se forem muitos vídeos (o Flow mostra o custo no menu da caixa).
