@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "KbidFlow",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Baixa os vídeos do Google Flow em 1080p, um por vez, esperando o upscale.",
   "permissions": ["sidePanel", "storage", "downloads", "tabs", "scripting", "contentSettings"],
   "host_permissions": ["https://flow.google.com/*", "https://labs.google/*"],

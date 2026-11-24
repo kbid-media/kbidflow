@@ -148,4 +148,8 @@ Write-Host "  2. Carregar sem compactação > cole o caminho (Ctrl+V): $env:LOCA
 Write-Host "  3. Fixe o raio (KbidFlow) no Chrome"
 Write-Host ""
 Write-Host "Depois, abra o Claude Code e diga: quero um take do Rodrigo falando: ..." -ForegroundColor Green
-if (-not $Simular) { Set-Clipboard -Value "$env:LOCALAPPDATA\KbidFlow\extensao" }
+if (-not $Simular) {
+    Set-Clipboard -Value "$env:LOCALAPPDATA\KbidFlow\extensao"
+    Write-Host "Abrindo o guia no navegador..." -ForegroundColor Cyan
+    Start-Process "https://github.com/kbideditor1/ev-avatar-flow/blob/main/COMECE-AQUI.md"
+}

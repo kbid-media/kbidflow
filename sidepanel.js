@@ -2,7 +2,7 @@
 const $ = (s) => document.querySelector(s);
 const FLOW_RE = /^https:\/\/(flow\.google\.com|labs\.google)\//;
 const FIELDS = [
-  "limit", "skipSaved", "includeImages",
+  "limit", "skipSaved", "includeImages", "nameByTitle",
   "quality", "imageQuality", "folder", "prefix", "startNumber", "timeoutMin", "gapSec", "fallback720", "allowCredits",
 ];
 let tabId = null;

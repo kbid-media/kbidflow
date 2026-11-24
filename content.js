@@ -556,6 +556,11 @@
   }
 
   const pad = (n) => String(n).padStart(3, "0");
+  // Nome do arquivo: o título do vídeo no Flow (ex.: v4_t03.mp4, renomeado pela página guia) ou "001 - título".
+  const arquivoDe = (t, num) =>
+    S.settings.nameByTitle === false
+      ? `${S.settings.prefix || ""}${pad(num)} - ${shortTitle(tileName(t))}`
+      : `${S.settings.prefix || ""}${shortTitle(tileName(t))}`;
   const shortTitle = (s) => s.replace(/[\\/]+/g, " ").slice(0, 60).trim();
 
   async function startDownloadAll() {
@@ -569,7 +574,7 @@
       await runDownloads((t, key) => {
         if (!wanted.has(key)) return null;
         count++;
-        return { fileName: `${S.settings.prefix || ""}${pad(startNum + count - 1)} - ${shortTitle(tileName(t))}` };
+        return { fileName: arquivoDe(t, startNum + count - 1) };
       }, wanted.size);
       if (!S.stop) {
         S.picked.clear();
@@ -594,7 +599,7 @@
       if (limit && count >= limit) return null;
       count++;
       const num = startNum + count - 1;
-      return { fileName: `${S.settings.prefix || ""}${pad(num)} - ${shortTitle(tileName(t))}` };
+      return { fileName: arquivoDe(t, num) };
     }, limit || 0);
   }
 
