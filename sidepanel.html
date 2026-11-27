@@ -11,6 +11,13 @@
   <div id="conn" class="pill off">sem aba do Flow</div>
 </header>
 
+<nav class="tabs">
+  <button data-tab="baixar" class="active">⬇ Baixar</button>
+  <button data-tab="agente">🤖 Fila do agente</button>
+</nav>
+
+<div id="tab-baixar">
+
 <section class="card" id="info">
   <div class="row small">
     <span id="countVideos">– vídeos</span>
@@ -76,6 +83,50 @@
   <div id="log"></div>
 </section>
 
+</div>
+
+<div id="tab-agente" class="hidden">
+  <section class="card">
+    <p class="hint">Manda os pedidos para o <b>agente do Flow</b>, um por vez: cola, envia, espera gerar e passa ao próximo. Antes da primeira vez, configure o agente: <a href="https://github.com/kbid-media/kbidflow/blob/main/docs/AGENTE.md" target="_blank">passo a passo</a>.</p>
+    <div class="actions">
+      <button id="agStart" class="primary">▶ Iniciar fila</button>
+      <button id="agPause" class="stop">Pausar</button>
+      <button id="agPing">Testar aba</button>
+    </div>
+    <div id="agEstado" class="status">—</div>
+  </section>
+
+  <section class="card">
+    <div class="row"><label>Fila <span id="agCont"></span></label>
+      <span><button id="agRetry" class="link">repetir ⚠/✖</button> <button id="agLimparFeitos" class="link">tirar feitos</button> <button id="agLimpar" class="link">esvaziar</button></span></div>
+    <ol id="agFila" class="agfila"></ol>
+  </section>
+
+  <section class="card">
+    <label>Colar pedidos</label>
+    <p class="hint">Cole a fila em JSON (botão <b>Copiar fila</b> do guia) ou pedidos em texto separados por uma linha <code>=====</code>. Cada pedido começa com <code>MODO: IMAGEM ESTÁTICA</code> ou <code>MODO: VÍDEO</code>.</p>
+    <textarea id="agEntrada" rows="5" placeholder='[{"cod":"t01","tipo":"imagem","texto":"MODO: IMAGEM ESTÁTICA ..."}]'></textarea>
+    <div class="actions"><button id="agAdd">Adicionar à fila</button></div>
+  </section>
+
+  <details class="card">
+    <summary>Ajustes da fila</summary>
+    <div class="grid2">
+      <div><label>Espera mínima (s)</label><input id="minSeg" type="number" value="15" /></div>
+      <div><label>Calma antes de encerrar (s)</label><input id="calmaSeg" type="number" value="12" /></div>
+      <div><label>Limite por imagem (s)</label><input id="maxImgSeg" type="number" value="300" /></div>
+      <div><label>Limite por vídeo (s)</label><input id="maxVidSeg" type="number" value="900" /></div>
+      <div><label>Pausa entre pedidos (s)</label><input id="pausaSeg" type="number" value="4" /></div>
+    </div>
+  </details>
+
+  <section class="card">
+    <div class="row"><label>Registro da fila</label><button id="agLimparLog" class="link">limpar</button></div>
+    <div id="agLog" class="aglog"></div>
+  </section>
+</div>
+
 <script src="sidepanel.js"></script>
+<script src="agente-panel.js"></script>
 </body>
 </html>

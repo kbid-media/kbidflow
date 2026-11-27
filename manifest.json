@@ -1,18 +1,49 @@
 {
   "manifest_version": 3,
   "name": "KbidFlow",
-  "version": "2.2.0",
-  "description": "Baixa os vídeos do Google Flow em 1080p, um por vez, esperando o upscale.",
-  "permissions": ["sidePanel", "storage", "downloads", "tabs", "scripting", "contentSettings"],
-  "host_permissions": ["https://flow.google.com/*", "https://labs.google/*"],
-  "background": { "service_worker": "background.js" },
-  "side_panel": { "default_path": "sidepanel.html" },
-  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
-  "action": { "default_title": "KbidFlow", "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" } },
+  "version": "2.3.0",
+  "description": "Baixa os vídeos do Google Flow em 1080p e manda filas de pedidos para o agente do Flow, um por vez.",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "downloads",
+    "tabs",
+    "scripting",
+    "contentSettings"
+  ],
+  "host_permissions": [
+    "https://flow.google.com/*",
+    "https://labs.google/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "KbidFlow",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
   "content_scripts": [
     {
-      "matches": ["https://flow.google.com/*", "https://labs.google/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://flow.google.com/*",
+        "https://labs.google/*"
+      ],
+      "js": [
+        "content.js",
+        "agente.js"
+      ],
       "run_at": "document_idle"
     }
   ]

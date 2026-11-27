@@ -1,7 +1,9 @@
 # ⚡ KbidFlow
 
-Baixa os vídeos do **Google Flow** em **1080p**, um por vez, sozinha.
-Ela espera o upscale de cada vídeo terminar antes de passar para o próximo.
+Duas ferramentas para o **Google Flow**, em abas no mesmo painel:
+
+- **⬇ Baixar:** baixa os vídeos em **1080p**, um por vez, esperando o upscale de cada um.
+- **🤖 Fila do agente:** manda uma lista de pedidos para o **agente do Flow**, um por vez, esperando cada geração terminar. Passo a passo completo (personagens, persona do artista, formato dos pedidos): **[docs/AGENTE.md](docs/AGENTE.md)**.
 
 ---
 
@@ -31,6 +33,18 @@ Ela espera o upscale de cada vídeo terminar antes de passar para o próximo.
 
 Quer só alguns? Ligue **Escolher os vídeos** e marque a caixinha de cada um.
 **Pular o que eu já baixei** vem ligado: rodar de novo baixa só o que faltou.
+
+---
+
+## 3 · Fila do agente (gerar em série)
+
+**a)** Uma vez por projeto: crie os **personagens** com as fotos e cole a **persona do artista** nas instruções do agente ([modelo](docs/PERSONA_MODELO.md)).
+
+**b)** Abra o projeto com o painel do agente aberto, clique no ⚡ › aba **🤖 Fila do agente** › **Testar aba**.
+
+**c)** Cole os pedidos (cada um começa com `MODO: IMAGEM ESTÁTICA` ou `MODO: VÍDEO`) › **Adicionar à fila** › **▶ Iniciar fila**.
+
+Regras e exemplos de pedido: **[docs/AGENTE.md](docs/AGENTE.md)**.
 
 ---
 

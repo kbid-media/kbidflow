@@ -72,3 +72,15 @@ button:disabled { opacity: 0.5; cursor: default; }
 details.card > summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--muted); list-style: none; }
 details.card > summary::before { content: "⚙ "; }
 details.card[open] > summary { color: var(--text); margin-bottom: 8px; }
+
+/* fila do agente */
+.agfila { padding-left: 20px; margin: 6px 0 0; max-height: 280px; overflow: auto; }
+.agfila li { margin: 3px 0; }
+.agfila .cod { font-weight: 600; }
+.agfila .msg { display: block; color: var(--muted); font-size: 11px; }
+.agfila li.enviando, .agfila li.gerando { color: var(--warn); }
+.agfila li.feito { color: var(--ok); }
+.agfila li.erro, .agfila li.pergunta { color: var(--err); }
+.agfila .x { float: right; background: none; border: 0; color: var(--muted); cursor: pointer; }
+.aglog { max-height: 220px; overflow: auto; font: 11px/1.45 ui-monospace, Consolas, monospace; white-space: pre-wrap; margin-top: 6px; color: #b8c2d8; }
+a { color: var(--accent); }
