@@ -104,6 +104,9 @@
       <button id="agPing">Testar aba</button>
     </div>
     <div id="agEstado" class="status">—</div>
+    <label class="check"><input id="baixarAoFim" type="checkbox" checked /> Ao terminar a fila, baixar os vídeos que ela gerou</label>
+    <label class="check"><input id="baixarImagens" type="checkbox" /> Baixar também as imagens geradas</label>
+    <p class="hint">Dica: cole imagens e vídeos juntos (imagens primeiro). Em <b>projeto novo</b> o download pega exatamente o que a fila gerou.</p>
   </section>
 
   <section class="card">
@@ -150,6 +153,7 @@
       <li><b>Primeiro todas as imagens</b>, confira, <b>depois os vídeos</b>.</li>
       <li>Cole a fila (JSON do guia ou textos separados por <code>=====</code>) › <b>Adicionar à fila</b> › <b>Testar aba</b> › <b>▶ Iniciar fila</b>.</li>
       <li>Deixe a aba do Flow aberta e não digite na caixa do agente. ⚠ = o agente perguntou algo: responda no Flow e clique <b>repetir ⚠/✖</b>.</li>
+      <li>Com <b>"Ao terminar a fila, baixar"</b> ligado, os vídeos que a fila gerou são baixados sozinhos no fim (melhor em projeto novo).</li>
     </ol>
     <h3>3 · ⬇ Baixar</h3>
     <ol class="small guia">

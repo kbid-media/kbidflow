@@ -108,17 +108,66 @@
     }
   }
 
+  // ---------- baixar ao terminar: o que esta fila gerou ----------
+  // No início, guarda a "digital" (miniatura /asb/<id>) de cada card que já existe, com a galeria no topo.
+  // No fim, os cards novos (que não estavam lá) do tipo certo, limitados à quantidade que a fila gerou, vão para o ⬇ Baixar.
+  const dl = () => window.__kfDl;
+  async function topoDaGaleria() {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    dl()?.scroller?.()?.scrollTo?.({ top: 0, behavior: "instant" });
+    await sleep(1200);
+  }
+  async function fotografarGaleria() {
+    const st = await get();
+    if (st.base && st.base.length && st.fila.some((x) => x.status === "feito")) return; // retomada: mantém a foto do começo
+    if (!dl()) return;
+    await topoDaGaleria();
+    st.base = dl().allTiles().map(dl().mediaId).filter(Boolean);
+    await put(st);
+    await log(`📸 galeria fotografada: ${st.base.length} arquivos que já existiam`);
+  }
+  async function baixarGerados() {
+    const st = await get(); const cfg = st.cfg || {};
+    if (!dl()) return log("⚠ não achei o módulo de download; recarregue o Flow (F5)");
+    const nVid = st.fila.filter((x) => x.status === "feito" && x.tipo === "video").length;
+    const nImg = cfg.baixarImagens ? st.fila.filter((x) => x.status === "feito" && x.tipo === "imagem").length : 0;
+    if (!nVid && !nImg) return log("nada para baixar (nenhum vídeo gerado com ✔)");
+    await log(`⏳ esperando 20 s para o Flow terminar as miniaturas e depois baixar ${nVid} vídeo(s)${nImg ? ` e ${nImg} imagem(ns)` : ""}`);
+    await sleep(20000);
+    await topoDaGaleria();
+    const base = new Set(st.base || []);
+    const keys = dl().tileKeys();
+    const escolhidos = []; let v = 0, im = 0;
+    for (const tl of dl().allTiles()) {
+      if (!dl().isReady(tl)) continue;
+      const id = dl().mediaId(tl); if (!id || base.has(id)) continue;
+      const k = dl().kindOf(tl);
+      if (k === "video" && v < nVid) { escolhidos.push(keys.get(tl)); v++; }
+      else if (k === "image" && im < nImg) { escolhidos.push(keys.get(tl)); im++; }
+    }
+    if (!escolhidos.length) return log("⚠ não encontrei os arquivos novos no topo da galeria; use a aba ⬇ Baixar");
+    const { kfSettings } = await chrome.storage.local.get("kfSettings");
+    const ok = dl().startWithKeys(escolhidos, { ...(kfSettings || {}), includeImages: !!cfg.baixarImagens });
+    await log(ok ? `⬇ baixando ${escolhidos.length} arquivo(s) gerados por esta fila (confira os azuis na galeria)` : "⚠ o download já estava rodando; tente pela aba ⬇ Baixar");
+    const s2 = await get(); s2.base = []; await put(s2);
+  }
+
   // ---------- laço ----------
   async function run() {
     if (running) return;
     running = true;
     await log("▶ fila iniciada nesta aba");
+    await fotografarGaleria();
     try {
       while (true) {
         const st = await get();
         if (!st.rodando) { await log("⏸ fila pausada"); break; }
         const i = st.fila.findIndex((x) => x.status === "pendente");
-        if (i < 0) { st.rodando = false; await put(st); await log("✔ fila concluída"); break; }
+        if (i < 0) {
+          st.rodando = false; await put(st); await log("✔ fila concluída");
+          if ((st.cfg || {}).baixarAoFim !== false) await baixarGerados();
+          break;
+        }
         const it = st.fila[i];
         await setItem(i, { status: "enviando", msg: "" });
         await log(`→ ${it.cod} (${it.tipo})`);

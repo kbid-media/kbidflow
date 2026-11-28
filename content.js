@@ -840,5 +840,19 @@
     return true;
   });
 
+  // API para a fila do agente (agente.js roda no mesmo "mundo isolado" desta extensão): baixar o que a fila gerou
+  const mediaId = (t) => (t.querySelector("img")?.src || "").split("?")[0];
+  window.__kfDl = {
+    mediaId, allTiles, kindOf, isReady, tileKeys, scroller,
+    running: () => S.running,
+    startWithKeys(keys, settings) {
+      if (S.running || !keys.length) return false;
+      S.pickMode = true;
+      S.picked = new Set(keys);
+      run("download", settings || {});
+      return true;
+    },
+  };
+
   log("pronto nesta aba do Flow");
 })();

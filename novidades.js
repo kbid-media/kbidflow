@@ -10,6 +10,11 @@
 
   // Mantenha a versão mais nova em cima. Frases curtas, do ponto de vista de quem usa.
   const NOVIDADES = {
+    "2.4.0": [
+      "🤖⬇ <b>Baixar ao terminar a fila</b>: quando a fila do agente acaba, a KbidFlow marca sozinha os vídeos que ELA gerou e baixa em seguida (com os 5 s de conferência em azul). Liga/desliga na aba Fila do agente.",
+      "Opção de <b>baixar também as imagens</b> geradas pela fila.",
+      "Dica: cole imagens e vídeos juntos numa fila só (imagens primeiro). Em projeto novo, o download pega exatamente o que a fila gerou.",
+    ],
     "2.3.0": [
       "🤖 <b>Fila do agente</b> (nova, primeira aba): cole uma lista de pedidos e a KbidFlow manda um por vez para o agente do Flow, esperando cada geração terminar.",
       "Se o agente fizer uma pergunta em vez de gerar, a fila pausa sozinha para você responder.",

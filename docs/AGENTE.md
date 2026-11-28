@@ -97,6 +97,7 @@ FICHA TÉCNICA DO VÍDEO
 5. Para cada pedido a fila espera: o agente responder, os cards da galeria pararem de gerar e uns 12 s sem nada mudar.
    - ✔ = gerou. ⚠ = o agente respondeu **sem gerar** (fez uma pergunta): a fila pausa, você responde no Flow e clica **repetir ⚠/✖**.
    - ✖ = falhou ou passou do limite (5 min por imagem, 15 min por vídeo, dá para mudar em Ajustes).
-6. No fim, baixe tudo na aba **⬇ Baixar** (1080p, com o nome do código).
+6. Com **"Ao terminar a fila, baixar os vídeos que ela gerou"** ligado (padrão), a fila termina e já chama o ⬇ Baixar só com os vídeos novos: no começo ela guarda o que já existia na galeria e, no fim, baixa o que é novo. Em **projeto novo** isso é exato. Sem a opção, baixe na aba **⬇ Baixar**.
+7. Imagens e vídeos podem ir **numa fila só** (imagens primeiro): cada vídeo usa a imagem do mesmo código.
 
 Se algo sair estranho, mande um print do **Registro da fila** para a equipe.

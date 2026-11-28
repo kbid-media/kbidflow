@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "KbidFlow",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Baixa os vídeos do Google Flow em 1080p e manda filas de pedidos para o agente do Flow, um por vez.",
   "permissions": [
     "sidePanel",

@@ -93,6 +93,8 @@
     const st = await get(); if (st.fila[i]?.status === "gerando") return; st.fila.splice(+i, 1); await put(st);
   };
   CFG.forEach((k) => ($(k).onchange = async () => { const st = await get(); st.cfg = { ...(st.cfg || {}), [k]: +$(k).value }; await put(st); }));
+  ["baixarAoFim", "baixarImagens"].forEach((k) => ($(k).onchange = async () => { const st = await get(); st.cfg = { ...(st.cfg || {}), [k]: $(k).checked }; await put(st); }));
+  get().then((st) => { const c = st.cfg || {}; $("baixarAoFim").checked = c.baixarAoFim !== false; $("baixarImagens").checked = !!c.baixarImagens; });
 
   chrome.storage.onChanged.addListener((ch) => { if (ch[KEY] || ch[LOG]) render(); });
   setInterval(render, 1000);
