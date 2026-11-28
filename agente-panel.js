@@ -9,11 +9,10 @@
   // abas do painel
   document.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => {
     document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("active", x === b));
-    $("tab-baixar").classList.toggle("hidden", b.dataset.tab !== "baixar");
-    $("tab-agente").classList.toggle("hidden", b.dataset.tab !== "agente");
+    document.querySelectorAll('[id^="tab-"]').forEach((el) => el.classList.toggle("hidden", el.id !== "tab-" + b.dataset.tab));
     try { localStorage.setItem("kfTab", b.dataset.tab); } catch {}
   }));
-  try { if (localStorage.getItem("kfTab") === "agente") document.querySelector('.tabs button[data-tab="agente"]').click(); } catch {}
+  try { const tb = localStorage.getItem("kfTab"); if (tb) document.querySelector(`.tabs button[data-tab="${tb}"]`)?.click(); } catch {}
 
   const get = async () => (await chrome.storage.local.get(KEY))[KEY] || { fila: [], rodando: false, cfg: {} };
   const put = (st) => chrome.storage.local.set({ [KEY]: st });

@@ -7,16 +7,26 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="bolt">⚡</span> KbidFlow <span id="version" class="small muted"></span></div>
+  <div class="brand"><span class="bolt">⚡</span> KbidFlow <span id="version" class="small muted"></span> <button id="openNews" class="link">novidades</button></div>
   <div id="conn" class="pill off">sem aba do Flow</div>
 </header>
 
+<div id="upd" class="upd hidden">
+  <div><b>Nova versão <span id="updVer"></span> disponível</b> <span class="muted small">(você está na <span id="updCur"></span>)</span></div>
+  <ol class="small">
+    <li><button id="updCopy" class="btn">1 · Copiar comando</button> e cole no <b>PowerShell</b> (tecla Windows › powershell › Enter). Espere aparecer "KbidFlow atualizada".</li>
+    <li><button id="updReload" class="btn">2 · Recarregar a KbidFlow</button> e dê F5 na aba do Flow.</li>
+  </ol>
+  <button id="updLater" class="link">lembrar depois</button>
+</div>
+
 <nav class="tabs">
-  <button data-tab="baixar" class="active">⬇ Baixar</button>
-  <button data-tab="agente">🤖 Fila do agente</button>
+  <button data-tab="agente" class="active">🤖 Fila do agente</button>
+  <button data-tab="baixar">⬇ Baixar</button>
+  <button data-tab="guia">📖 Guia</button>
 </nav>
 
-<div id="tab-baixar">
+<div id="tab-baixar" class="hidden">
 
 <section class="card" id="info">
   <div class="row small">
@@ -85,7 +95,7 @@
 
 </div>
 
-<div id="tab-agente" class="hidden">
+<div id="tab-agente">
   <section class="card">
     <p class="hint">Manda os pedidos para o <b>agente do Flow</b>, um por vez: cola, envia, espera gerar e passa ao próximo. Antes da primeira vez, configure o agente: <a href="https://github.com/kbid-media/kbidflow/blob/main/docs/AGENTE.md" target="_blank">passo a passo</a>.</p>
     <div class="actions">
@@ -126,7 +136,46 @@
   </section>
 </div>
 
+<div id="tab-guia" class="hidden">
+  <section class="card">
+    <h3 style="margin-top:0">1 · Antes da primeira vez (por projeto)</h3>
+    <ol class="small guia">
+      <li>No Flow, crie o projeto e, em <b>Personagens</b>, cadastre cada pessoa com as fotos originais (rosto, corpo inteiro, sheet). Use o nome completo.</li>
+      <li>Abra o <b>agente</b> (painel da direita) e cole a <b>persona do artista</b> nas instruções dele. <a href="https://github.com/kbid-media/kbidflow/blob/main/docs/PERSONA_MODELO.md" target="_blank">modelo</a></li>
+      <li>Mande <b>1 pedido à mão</b> para ver se ele gera do jeito certo.</li>
+    </ol>
+    <h3>2 · 🤖 Fila do agente (gerar)</h3>
+    <ol class="small guia">
+      <li>Cada pedido começa com <code>MODO: IMAGEM ESTÁTICA</code> ou <code>MODO: VÍDEO</code>. O vídeo diz <code>Frame inicial: &lt;código da imagem&gt;</code>.</li>
+      <li><b>Primeiro todas as imagens</b>, confira, <b>depois os vídeos</b>.</li>
+      <li>Cole a fila (JSON do guia ou textos separados por <code>=====</code>) › <b>Adicionar à fila</b> › <b>Testar aba</b> › <b>▶ Iniciar fila</b>.</li>
+      <li>Deixe a aba do Flow aberta e não digite na caixa do agente. ⚠ = o agente perguntou algo: responda no Flow e clique <b>repetir ⚠/✖</b>.</li>
+    </ol>
+    <h3>3 · ⬇ Baixar</h3>
+    <ol class="small guia">
+      <li>Com o projeto aberto, clique <b>Baixar vídeos</b> e deixe a aba do Flow na frente.</li>
+      <li>Os arquivos caem em <code>Downloads\KbidFlow</code> com o título de cada vídeo (o código).</li>
+    </ol>
+    <h3>Regras que evitam retrabalho</h3>
+    <ul class="small guia">
+      <li>Nunca "continuar do último quadro": divida a fala em <b>planos diferentes</b>, cada um com sua imagem.</li>
+      <li>Diga <b>onde a câmera está</b> e a distância do objeto da frente (senão vira selfie).</li>
+      <li>Peça <b>1 saída</b> por geração e duração de 4, 6 ou 8 s.</li>
+    </ul>
+    <p class="small"><a href="https://github.com/kbid-media/kbidflow/blob/main/docs/AGENTE.md" target="_blank">Guia completo no GitHub</a> · <button id="openNews2" class="link">ver novidades</button></p>
+  </section>
+</div>
+
+<div id="news" class="modal hidden">
+  <div class="modalbox">
+    <div class="row"><b>⚡ Novidades da KbidFlow <span id="newsVer"></span></b><button id="newsClose" class="link">fechar</button></div>
+    <div id="newsBody" class="small"></div>
+    <div class="actions"><button id="newsOk" class="primary">Entendi</button></div>
+  </div>
+</div>
+
 <script src="sidepanel.js"></script>
 <script src="agente-panel.js"></script>
+<script src="novidades.js"></script>
 </body>
 </html>

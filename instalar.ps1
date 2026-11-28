@@ -1,9 +1,9 @@
 # KbidFlow - instala ou atualiza a extensão a partir do último Release do GitHub (repositório público, sem login).
 # Uso (PowerShell):
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kbideditor1/kbidflow/main/instalar.ps1)))
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/kbid-media/kbidflow/main/instalar.ps1)))
 
 param(
-    [string]$Repo = "kbideditor1/kbidflow",
+    [string]$Repo = "kbid-media/kbidflow",
     [string]$Pasta = "$env:LOCALAPPDATA\KbidFlow\extensao"
 )
 

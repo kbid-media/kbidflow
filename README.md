@@ -12,7 +12,7 @@ Duas ferramentas para o **Google Flow**, em abas no mesmo painel:
 **a)** Abra o **PowerShell** (tecla Windows, digite `powershell`, Enter) e cole:
 
 ```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kbideditor1/kbidflow/main/instalar.ps1)))
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/kbid-media/kbidflow/main/instalar.ps1)))
 ```
 
 **b)** No Chrome, abra `chrome://extensions` e ligue o **Modo do desenvolvedor** (canto de cima, à direita).
@@ -23,7 +23,19 @@ Duas ferramentas para o **Google Flow**, em abas no mesmo painel:
 
 ---
 
-## 2 · Baixar
+## 2 · 🤖 Fila do agente (gerar em série)
+
+**a)** Uma vez por projeto: crie os **personagens** com as fotos e cole a **persona do artista** nas instruções do agente ([modelo](docs/PERSONA_MODELO.md)).
+
+**b)** Abra o projeto com o painel do agente aberto, clique no ⚡ › aba **🤖 Fila do agente** › **Testar aba**.
+
+**c)** Cole os pedidos (cada um começa com `MODO: IMAGEM ESTÁTICA` ou `MODO: VÍDEO`) › **Adicionar à fila** › **▶ Iniciar fila**.
+
+Regras e exemplos de pedido: **[docs/AGENTE.md](docs/AGENTE.md)**.
+
+---
+
+## 3 · ⬇ Baixar
 
 **a)** Abra o projeto no Flow e clique no ⚡.
 
@@ -36,15 +48,13 @@ Quer só alguns? Ligue **Escolher os vídeos** e marque a caixinha de cada um.
 
 ---
 
-## 3 · Fila do agente (gerar em série)
+## 4 · 🔔 Atualizar
 
-**a)** Uma vez por projeto: crie os **personagens** com as fotos e cole a **persona do artista** nas instruções do agente ([modelo](docs/PERSONA_MODELO.md)).
+Quando sair uma versão nova, o painel mostra um aviso amarelo no topo:
 
-**b)** Abra o projeto com o painel do agente aberto, clique no ⚡ › aba **🤖 Fila do agente** › **Testar aba**.
+**a)** Clique **1 · Copiar comando** e cole no **PowerShell**. Espere aparecer "KbidFlow atualizada".
 
-**c)** Cole os pedidos (cada um começa com `MODO: IMAGEM ESTÁTICA` ou `MODO: VÍDEO`) › **Adicionar à fila** › **▶ Iniciar fila**.
-
-Regras e exemplos de pedido: **[docs/AGENTE.md](docs/AGENTE.md)**.
+**b)** Clique **2 · Recarregar a KbidFlow** e dê F5 na aba do Flow. Pronto: na primeira abertura aparecem as **novidades** da versão.
 
 ---
 
