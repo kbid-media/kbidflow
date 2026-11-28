@@ -451,6 +451,98 @@
     paintPicks();
   }
 
+  // ---------- destaque dos downloads: na fila / baixando / baixado / erro / tirado ----------
+  S.dl = new Map();        // chave -> "active" | "ok" | "fail"
+  S.excluded = new Set();  // chaves que a pessoa tirou da fila
+  S.queueFn = null;        // (tile, chave) -> true se este vídeo entra na fila
+  let dlLayer = null;
+  const dlBoxes = new Map();
+  const DL = {
+    queued: { c: "#4a90e2", t: "NA FILA" }, active: { c: "#fbbc04", t: "⬇ BAIXANDO" }, ok: { c: "#34a853", t: "✓ BAIXADO" },
+    fail: { c: "#ea4335", t: "✖ ERRO" }, excluded: { c: "#8b93a7", t: "TIRADO" },
+  };
+  function dlState(t, k) {
+    if (S.dl.has(k)) return S.dl.get(k);
+    if (S.excluded.has(k)) return S.running ? "excluded" : null;
+    if (S.running && S.queueFn && isReady(t) && S.queueFn(t, k)) return "queued";
+    return null;
+  }
+  function toggleExclude(k) {
+    if (S.dl.has(k)) return;
+    if (S.excluded.has(k)) {
+      S.excluded.delete(k);
+      if (S.wanted && S.wantedAll?.has(k)) { S.wanted.add(k); S.total = S.wanted.size + S.done + S.failed; }
+    } else {
+      S.excluded.add(k);
+      if (S.wanted?.has(k)) { S.wanted.delete(k); S.total = Math.max(0, S.total - 1); }
+    }
+    paintDl();
+    status();
+  }
+  function paintDl() {
+    const any = S.running || S.dl.size;
+    if (!any) {
+      if (dlLayer) { dlLayer.remove(); dlLayer = null; dlBoxes.clear(); }
+      return;
+    }
+    if (!dlLayer) {
+      dlLayer = document.createElement("div");
+      dlLayer.id = "kbidflow-dl";
+      dlLayer.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:2147483645";
+      const st = document.createElement("style");
+      st.textContent = "@keyframes kfpulse{0%,100%{box-shadow:0 0 0 0 rgba(251,188,4,.9)}50%{box-shadow:0 0 0 10px rgba(251,188,4,0)}}";
+      dlLayer.appendChild(st);
+      document.documentElement.appendChild(dlLayer);
+    }
+    const keys = tileKeys();
+    const live = new Set();
+    for (const t of allTiles()) {
+      const k = keys.get(t);
+      const stt = dlState(t, k);
+      if (!stt) continue;
+      const r = t.getBoundingClientRect();
+      if (!(r.width > 0 && r.bottom > 0 && r.top < innerHeight)) continue;
+      live.add(k);
+      let box = dlBoxes.get(k);
+      if (!box) {
+        box = document.createElement("div");
+        const chip = document.createElement("div");
+        const x = document.createElement("button");
+        ["pointerdown", "mousedown", "pointerup", "mouseup", "dblclick"].forEach((ev) => x.addEventListener(ev, stopEvt));
+        x.addEventListener("click", (e) => { stopEvt(e); e.preventDefault(); toggleExclude(box.dataset.key); });
+        box.append(chip, x);
+        dlLayer.appendChild(box);
+        dlBoxes.set(k, box);
+      }
+      box.dataset.key = k;
+      const d = DL[stt];
+      box.style.cssText =
+        `position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;box-sizing:border-box;` +
+        `border:4px solid ${d.c};border-radius:10px;background:${stt === "ok" ? "rgba(52,168,83,.18)" : stt === "excluded" ? "rgba(20,20,20,.55)" : "transparent"};` +
+        (stt === "active" ? "animation:kfpulse 1.2s infinite;" : "");
+      const [chip, x] = box.children;
+      chip.textContent = d.t;
+      chip.style.cssText = `position:absolute;left:6px;top:6px;background:${d.c};color:#111;font:800 12px system-ui;padding:3px 8px;border-radius:6px;`;
+      const canX = stt === "queued" || stt === "excluded";
+      x.textContent = stt === "excluded" ? "↺ voltar" : "✕ tirar";
+      x.title = stt === "excluded" ? "Voltar para a fila" : "Tirar da fila (não baixar)";
+      x.style.cssText = `position:absolute;right:6px;top:6px;display:${canX ? "block" : "none"};pointer-events:auto;cursor:pointer;` +
+        "background:#111;color:#fff;border:2px solid #fff;border-radius:6px;font:700 12px system-ui;padding:3px 8px;";
+    }
+    for (const [k, b] of dlBoxes) if (!live.has(k)) { b.remove(); dlBoxes.delete(k); }
+  }
+  setInterval(paintDl, 300);
+  addEventListener("scroll", paintDl, { capture: true, passive: true });
+  addEventListener("resize", paintDl);
+  // 5 s para conferir os destaques azuis antes do primeiro download
+  async function conferencia() {
+    for (let i = 5; i > 0 && !S.stop; i--) {
+      status(`Confira os vídeos em azul (✕ tira da fila). Começa em ${i} s`);
+      showBadge(`KbidFlow · Confira os azuis. Começa em ${i} s`);
+      await sleep(1000);
+    }
+  }
+
   // ---------- histórico (para "só os ainda não baixados") ----------
   const histKey = () => "kfSaved:" + location.pathname;
   async function loadHistory() {
@@ -491,7 +583,7 @@
         log("O projeto mudou, parando.", "error");
         break;
       }
-      if (expected && n >= expected) break;
+      if (S.wanted ? S.wanted.size === 0 && n > 0 : expected && n >= expected) break;
       const keys = tileKeys();
       const tiles = allTiles().filter(isReady);
       let next = null;
@@ -500,6 +592,7 @@
         const k = keys.get(t);
         if (seen.has(k)) continue;
         seen.add(k);
+        if (S.excluded.has(k)) continue;
         const tg = pickTarget(t, k);
         if (tg) {
           next = t;
@@ -537,15 +630,19 @@
       n++;
       const label = `#${n}${S.total ? "/" + S.total : ""} "${tileName(next).slice(0, 40)}"`;
       markTile(next, "active");
+      S.dl.set(target.key, "active");
+      S.wanted?.delete(target.key);
       const err = await downloadTile(next, label, target.fileName);
       if (S.stop) break;
       if (err) {
         S.failed++;
         markTile(next, "fail");
+        S.dl.set(target.key, "fail");
         log(`❌ ${label}: ${err}`, "error");
       } else {
         S.done++;
         markTile(next, "ok");
+        S.dl.set(target.key, "ok");
         await addHistory(target.key);
         log(`✅ ${label} salvo em ${S.lastQ} como ${target.fileName}`, S.lastQ === S.settings.quality || kindOf(next) === "image" ? "success" : "warn");
       }
@@ -567,12 +664,15 @@
     // Com vídeos marcados, baixa só eles (na ordem do grid), ignorando "quantos" e o histórico.
     if (S.pickMode && S.picked.size) {
       const wanted = new Set(S.picked);
+      S.wanted = new Set(wanted); S.wantedAll = new Set(wanted);
+      S.queueFn = (t, key) => S.wanted.has(key);
       const startNum = Number(S.settings.startNumber) || 1;
       let count = 0;
       S.total = wanted.size;
-      status(`Baixando ${wanted.size} marcados`);
+      await conferencia();
+      status(`Baixando ${S.wanted.size} marcados`);
       await runDownloads((t, key) => {
-        if (!wanted.has(key)) return null;
+        if (!S.wanted.has(key)) return null;
         count++;
         return { fileName: arquivoDe(t, startNum + count - 1) };
       }, wanted.size);
@@ -592,6 +692,8 @@
       (t) => isReady(t) && (includeImages || kindOf(t) === "video") && !hist.has(keys0.get(t)),
     ).length;
     S.total = limit ? Math.min(limit, pending) || limit : pending;
+    S.queueFn = (t, key) => (includeImages || kindOf(t) === "video") && !hist.has(key) && (!limit || count < limit);
+    await conferencia();
     status(`Baixando ${limit ? limit : "todos os"} itens`);
     await runDownloads((t, key) => {
       if (!includeImages && kindOf(t) !== "video") return null;
@@ -607,8 +709,7 @@
   const tileMarks = new WeakMap();
   function markTile(t, state) {
     const color = { active: "#fbbc04", ok: "#34a853", fail: "#ea4335" }[state];
-    t.style.outline = `3px solid ${color}`;
-    t.style.outlineOffset = "-3px";
+    void color; // o destaque visual agora é a camada paintDl (sobrevive à reciclagem dos cards do Flow)
     tileMarks.set(t, state);
   }
   let badge = null;
@@ -653,6 +754,7 @@
     S.settings = settings || {};
     S.done = S.failed = S.total = 0;
     S.dlState.clear();
+    S.dl.clear(); S.excluded.clear(); S.queueFn = null; S.wanted = null; S.wantedAll = null;
     window.addEventListener("beforeunload", onBeforeUnload);
     const oldTitle = document.title;
     status("Iniciando downloads");
@@ -663,6 +765,8 @@
         log("Erro: " + (e?.message || e), "error");
       } finally {
         S.running = false;
+        S.queueFn = null; S.wanted = null;
+        setTimeout(() => { if (!S.running) { S.dl.clear(); S.excluded.clear(); paintDl(); } }, 120000); // destaques somem 2 min depois
         window.removeEventListener("beforeunload", onBeforeUnload);
         document.title = oldTitle;
         const msg = S.stop ? "Parado" : `Concluído: ${S.done} ok, ${S.failed} com erro`;

@@ -15,7 +15,8 @@
       "Se o agente fizer uma pergunta em vez de gerar, a fila pausa sozinha para você responder.",
       "📖 <b>Guia</b> rápido de uso dentro do painel (aba Guia).",
       "🔔 Aviso de <b>versão nova</b> no topo do painel, com o comando de atualização pronto para copiar.",
-      "⬇ <b>Baixar</b> continua igual, agora na segunda aba.",
+      "⬇ <b>Baixar</b> agora na segunda aba, com <b>destaque em cada vídeo</b>: azul = na fila, amarelo = baixando, verde = baixado, vermelho = erro.",
+      "Antes de começar, 5 s para conferir os azuis. O <b>✕ tirar</b> em cada vídeo tira da fila (também durante o download); ↺ volta.",
     ],
   };
 
